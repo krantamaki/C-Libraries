@@ -115,7 +115,7 @@ void insertion_sort(void *arr, const int n, const int desc, size_t size,
 
 // Function for merging two sub arrays (arr[start:mid + 1] and arr[mid + 1: end])
 // in the correct order
-void _merge(void* arr, const int start, const int mid, const int end, size_t size,
+void _merge(void* arr, const int start, const int mid, const int end,
 			const int desc, size_t size, 
 			int (*cmp)(const void *, const void *, const int)) {
 	int len_left = mid - start;
@@ -280,8 +280,6 @@ void _quicksort(void* arr, const int start, const int end,
 
 // The main quicksort function
 // Space complexity O(1) and time complexity O(n*log_2(n)). Parallelized
-// NOTE! The comparison function is not used but is included as parameter
-// for compatibility
 void quicksort(void* arr, const int start, const int end, 
 			   const int desc, size_t size,
 			   int (*cmp)(const void *, const void *, const int)) {
@@ -299,6 +297,8 @@ void quicksort(void* arr, const int start, const int end,
 // Space complexity O(n) and time complexity O(n)
 // (as the number of possible elements 256 is considered insignificant)
 // NOTE! Not parallelized (yet?)
+// NOTE! The comparison function is not used but is included as parameter
+// for compatibility
 void int_radix_sort(void* arr, const int n, const int desc, size_t size,
 			   int (*cmp)(const void *, const void *, const int)) {
 	if (n <= 1) return
