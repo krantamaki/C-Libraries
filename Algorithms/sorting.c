@@ -105,7 +105,7 @@ void _insertion_sort(void *arr, const int start, const int end,
 void insertion_sort(void *arr, const int n, const int desc, size_t size,
 					int (*cmp)(const void *, const void *, const int)) {
 	if (n <= 1) return
-	_insertion_sort(arr, 0, n, desc, (*cmp));
+	_insertion_sort(arr, 0, n, desc, cmp);
 }
 
 
@@ -171,15 +171,15 @@ void _mergesort(void* arr, const int start, const int end,
 			#pragma omp taskgroup  // Start multiple recursive tasks in parallel
 			{
 				#pragma omp task shared(arr)  // Tasks share the same array
-				_mergesort(arr, start, mid, desc, size, (*cmp));
+				_mergesort(arr, start, mid + 1, desc, size, cmp);
 				#pragma omp task shared(arr)
-				_mergesort(arr, mid + 1, end, desc, size, (*cmp));
+				_mergesort(arr, mid + 1, end, desc, size, cmp);
 			}
 			// Merge the sorted subarrays
-			_merge(arr, start, mid, end, desc, size, (*cmp));
+			_merge(arr, start, mid, end, desc, size, cmp);
 		}
 		// If the arrays are small enough just use insertion sort
-		else _insertion_sort(arr, start, end, desc, size, (*cmp));
+		else _insertion_sort(arr, start, end, desc, size, cmp);
 	}
 }
 
@@ -192,7 +192,7 @@ void mergesort(void* arr, const int n, const int desc, size_t size
 	// Initialize parallelizations
 	#pragma omp parallel
 	#pragma omp single
-	_mergesort(arr, 0, n, desc, size, (*cmp));
+	_mergesort(arr, 0, n, desc, size, cmp);
 }
 
 
@@ -264,17 +264,17 @@ void _quicksort(void* arr, const int start, const int end,
 				int (*cmp)(const void *, const void *, const int)) {
 	if (start < end) {  // Sanity check
 		if (end - start > THRESHOLD) {  // TODO: Define THRESHOLD in header
-			int_tuple pivots = _partition(arr, start, end, desc, size, (*cmp));
+			int_tuple pivots = _partition(arr, start, end, desc, size, cmp);
 			#pragma omp taskgroup  // Start multiple recursive tasks in parallel
 			{
 				#pragma omp task shared(arr)  // Tasks share the same array
-				_quicksort(arr, start, pivots._1, desc, size, (*cmp));
+				_quicksort(arr, start, pivots._1 + 1, desc, size, cmp);
 				#pragma omp task shared(arr)
-				_quicksort(arr, pivots._2, end, desc, size, (*cmp));
+				_quicksort(arr, pivots._2, end, desc, size, cmp);
 			}
 		}
 		// If the arrays are small enough just use insertion sort
-		else _insertion_sort(arr, start, end, desc, size, (*cmp));
+		else _insertion_sort(arr, start, end, desc, size, cmp);
 	}			
 }
 
@@ -287,7 +287,7 @@ void quicksort(void* arr, const int start, const int end,
 	// Initialize parallelizations
 	#pragma omp parallel
 	#pragma omp single
-	_quicksort(arr, 0, n, desc, size, (*cmp));	   		   
+	_quicksort(arr, 0, n, desc, size, cmp);	   		   
 }
 
 
@@ -384,11 +384,11 @@ int validate(const void* arr, const int n, const int desc,
 
 
 // Function for generating a wanted sized array of random 32-bit integers
-// All elements have values in range [0, RAND_MAX]
+// All elements have values in range [0, upper]
 // Assumes that enough memory has already been allocated
-void rand_int_arr(int* arr, const int n) {
+void rand_int_arr(int* arr, const int n, const int upper) {
 	for (int i = 0; i < n; i++) {
-		arr[i] = rand();
+		arr[i] = (rand() / RAND_MAX) * upper;
 	}
 }
 
