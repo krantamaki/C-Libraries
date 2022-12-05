@@ -468,7 +468,7 @@ int main() {
 	// and time them
 	printf("\n\nTesting all algorithms with an array of 10 000 ints:\n");
 	int* big_arr = (int*)malloc(10000 * sizeof(int));
-	rand_int_arr(big_arr, 10000, 10);
+	rand_int_arr(big_arr, 10000, 100);
 	int* big_sort_arr = (int*)malloc(10000 * sizeof(int));
 	memcpy(big_sort_arr, big_arr, 10000 * sizeof(int));
 	
