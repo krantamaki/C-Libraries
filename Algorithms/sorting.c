@@ -390,7 +390,7 @@ int validate_sort(const void* arr, const int n, const int desc, size_t size,
 // Assumes that enough memory has already been allocated
 void rand_int_arr(int* arr, const int n, const int upper) {
 	for (int i = 0; i < n; i++) {
-		arr[i] = (rand() / RAND_MAX) * upper;
+		arr[i] = rand() % upper;
 	}
 }
 
@@ -448,7 +448,7 @@ int main() {
 	memcpy(small_sort_arr, small_arr, sizeof(int));
 	
 	// Mergesort
-	printf("\nSorted using  mergesort:\n");
+	printf("\nSorted using mergesort:\n");
 	mergesort(small_sort_arr, 10, 0, sizeof(int), int_cmp);
 	for (int i = 0; i < 10; i++) {
 		printf("%d ", small_sort_arr[i]);
@@ -456,7 +456,7 @@ int main() {
 	memcpy(small_sort_arr, small_arr, sizeof(int));
 	
 	// Quicksort
-	printf("\nSorted using  quicksort:\n");
+	printf("\nSorted using quicksort:\n");
 	quicksort(small_sort_arr, 10, 0, sizeof(int), int_cmp);
 	for (int i = 0; i < 10; i++) {
 		printf("%d ", small_sort_arr[i]);
@@ -464,7 +464,7 @@ int main() {
 	memcpy(small_sort_arr, small_arr, sizeof(int));
 	
 	// Radix sort
-	printf("\nSorted using  radix sort:\n");
+	printf("\nSorted using radix sort:\n");
 	int_radix_sort(small_sort_arr, 10, 0, sizeof(int), int_cmp);
 	for (int i = 0; i < 10; i++) {
 		printf("%d ", small_sort_arr[i]);
