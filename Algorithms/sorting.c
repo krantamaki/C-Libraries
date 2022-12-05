@@ -5,19 +5,21 @@
 #include <omp.h>
 #include "sorting.h"
 
-// The comparison functions for datatypes int, float, double and char*.
+
+// COMPARISON FUNCTIONS
+
 // Comparison functions are passed to the sorting algorithms and must
 // correspond with the datatype of the elements of the array
 
 // Comparison function for 32-bit signed integers
-int int_cmp(const void* ptr1, const void* ptr2, const int desc) {
-	int int1 = (int)ptr1;
-	int int2 = (int)ptr2;
-	return desc == 1 ? int2 - int1 : int1 - int2;
+int int_cmp(void* ptr1, void* ptr2) {
+	int int1 = *(const int*)ptr1;
+	int int2 = *(const int*)ptr2;
+	return int1 - int2;
 }
 
 // Comparison function for 32-bit floating point numbers
-int float_cmp(const void* ptr1, const void* ptr2, const int desc) {
+int float_cmp(void* ptr1, void* ptr2) {
 	float float1 = *(const float*)ptr1;
 	float float2 = *(const float*)ptr2;
 	
@@ -25,11 +27,11 @@ int float_cmp(const void* ptr1, const void* ptr2, const int desc) {
 	if (float1 == float2) cmp = 0;
 	else if (float1 < float2) cmp = -1;
 	else cmp = 1;
-	return desc == 1 ? -cmp : cmp;
+	return cmp;
 }
 
 // Comparison function for 64-bit floating point numbers
-int double_cmp(const void* ptr1, const void* ptr2, const int desc) {
+int double_cmp(void* ptr1, void* ptr2) {
 	double double1 = *(const double*)ptr1;
 	double double2 = *(const double*)ptr2;
 	
@@ -37,14 +39,14 @@ int double_cmp(const void* ptr1, const void* ptr2, const int desc) {
 	if (double1 == double2) cmp = 0;
 	else if (double1 < double2) cmp = -1;
 	else cmp = 1;
-	return desc == 1 ? -cmp : cmp;
+	return cmp;
 }
 
 // Comparison function for NULL TERMINATED char arrays
 // Differs from string.h libraries strcmp() function by comparing
 // the sum of the byte representations of the chars rather that finding 
 // the first different chars and comparing them
-int str_cmp(const void* ptr1, const void* ptr2, const int desc) {
+int str_cmp(void* ptr1, void* ptr2) {
 	char* str1 = (char*)ptr1;
 	char* str2 = (char*)ptr2;
 	
@@ -66,24 +68,38 @@ int str_cmp(const void* ptr1, const void* ptr2, const int desc) {
 		i++;
 	}
 
-	return int_cmp((void*)sum1, (void*)sum2, desc);
+	return sum1 - sum2;
 }
 
 
-// Necessary functions for insertion sort
-
-// Function for placing the value of src into the pointer of dst
-void _place(void* src, void* dst, size_t size) {
-	unsigned char *ptr1 = src, *ptr2 = dst;
-	for (size_t i = 1; i != size; i++) {
-		ptr2[i] = ptr1[i];
-	}
-}
+// VOID POINTED ARRAY FUNCTIONS
 
 // Function for getting the ith element of a void pointer array
 void* _apply(void* arr, const int i, size_t size) {
 	return (void*)((char*)arr + (int)size * i);
 }
+
+// Function for placing the value of src into the pointer of dst
+void _place(void* dst, void* src, size_t size) {
+	unsigned char *ptr1 = dst, *ptr2 = src;
+	for (size_t i = 0; i != size; i++) {
+		ptr1[i] = ptr2[i];
+	}
+}
+
+// Function for swapping the references of two pointers
+// Swaps the values byte by byte
+void _swap(void* elem1, void* elem2, size_t size) {
+	unsigned char *ptr1 = elem1, *ptr2 = elem2, temp;
+	for (size_t i = 0; i != size; i++) {
+		temp = ptr1[i];
+		ptr1[i] = ptr2[i];
+		ptr2[i] = temp;
+	}
+}
+
+
+// INSERTION SORT
 
 // Insertion sort algorithm for sorting subarray arr[start, end]. 
 // This is defined first as it is what quick- and mergesort algorithms 
@@ -93,60 +109,54 @@ void* _apply(void* arr, const int i, size_t size) {
 // Best case time complexity O(n) and worst case O(n^2) so not 
 // recommended for larger arrays. NOTE! Not parallelized.
 void _insertion_sort(void *arr, const int start, const int end, 
-					 const int desc, size_t size, 
-					 int (*cmp)(const void *, const void *, const int)) {
-	for (int i = start; i < end; i++) {
-		void* elem = _apply(arr, i, size);
+					 size_t size, int (*cmp)(void*, void*)) {
+	for (int i = start + 1; i < end; i++) {
 		int j = i;
-		while (j > start & (*cmp)(elem, _apply(arr, j - 1, size), desc) < 0) {
-			_place(_apply(arr, j - 1, size), _apply(arr, j, size), size);
+		while (j > start && (*cmp)(_apply(arr, j - 1, size), _apply(arr, j, size)) > 0) {
+			_swap(_apply(arr, j - 1, size), _apply(arr, j, size), size);
 			j--;
 		}
-		_place(elem, _apply(arr, j, size), size);
 	}
 }
 
 // Function wrapper for calling above defined _insertion_sort for
 // the whole array. Can be called independently.
-void insertion_sort(void *arr, const int n, const int desc, size_t size,
-					int (*cmp)(const void *, const void *, const int)) {
+void insertion_sort(void *arr, const int n, size_t size,
+					int (*cmp)(void*, void*)) {
 	if (n <= 1) return;
-	_insertion_sort(arr, 0, n, desc, size, cmp);
+	_insertion_sort(arr, 0, n, size, cmp);
 }
 
 
-// Necessary functions for mergesort. The functions with name starting
-// with '_' should not be called independently, but are subroutines of 
-// of the main mergesort() function
+// MERGESORT
 
 // Function for merging two sub arrays (arr[start:mid + 1] and arr[mid + 1: end])
 // in the correct order
 void _merge(void* arr, const int start, const int mid, const int end,
-			const int desc, size_t size, 
-			int (*cmp)(const void *, const void *, const int)) {
-	int len_left = mid - start;
-	int len_right = end - 1 - mid;
+			size_t size, int (*cmp)(void*, void*)) {
+	int len_left = (mid + 1) - start;
+	int len_right = end - mid;
 	// Allocate temporary arrays
-	void* left = (void*)malloc((len_left) * size);
-	void* right = (void*)malloc((len_right) * size);
+	void* left = (void*)malloc(len_left * size);
+	void* right = (void*)malloc(len_right * size);
 	
 	// Copy the data to the temp arrays
 	for (int i = 0; i < len_left; i++) {
-		_place(_apply(arr, start + i, size), _apply(left, i, size), size);
+		_place(_apply(left, i, size), _apply(arr, start + i, size), size);
 	}
-	for (int i = 0; i < len_left; i++) {
-		_place(_apply(arr, mid + 1 + i, size), _apply(right, i, size), size);
+	for (int i = 0; i < len_right; i++) {
+		_place(_apply(right, i, size), _apply(arr, (mid + 1) + i, size), size);
 	}
 	
 	// Merge the temporary arrays to arr
 	int left_i = 0, right_i = 0, arr_i = start;
 	while (left_i < len_left && right_i < len_right) {
-		if ((*cmp)(_apply(left, left_i, size), _apply(right, right_i, size), size) > 0) {
-			_place(_apply(right, right_i, size), _apply(arr, arr_i, size), size);
+		if ((*cmp)(_apply(left, left_i, size), _apply(right, right_i, size)) > 0) {
+			_place(_apply(arr, arr_i, size), _apply(right, right_i, size), size);
 			right_i++;
 		}
 		else {
-			_place(_apply(left, left_i, size), _apply(arr, arr_i, size), size);
+			_place(_apply(arr, arr_i, size), _apply(left, left_i, size), size);
 			left_i++;
 		}
 		arr_i++;
@@ -154,11 +164,11 @@ void _merge(void* arr, const int start, const int mid, const int end,
 	
 	// Copy remaining elements
 	for (int i = left_i; i < len_left; i++) {
-		_place(_apply(left, i, size), _apply(arr, arr_i, size), size);
+		_place(_apply(arr, arr_i, size), _apply(left, i, size), size);
 		arr_i++;
 	}
 	for (int i = right_i; i < len_right; i++) {
-		_place(_apply(right, i, size), _apply(arr, arr_i, size), size);
+		_place(_apply(arr, arr_i, size), _apply(right, i, size), size);
 		arr_i++;
 	}
 	
@@ -169,62 +179,47 @@ void _merge(void* arr, const int start, const int mid, const int end,
 
 // Recursively called assisting function for mergesort
 void _mergesort(void* arr, const int start, const int end, 
-				const int desc, size_t size,
-				int (*cmp)(const void *, const void *, const int)) {
+				size_t size, int (*cmp)(void*, void*)) {
 	if (start < end) {  // Sanity check (should always be the case)
-		if (end - start > THRESHOLD) {  // TODO: Define THRESHOLD in header
-			int mid = (end - start) / 2;
+		if (end - start > THRESHOLD) {
+			int mid = (end + start) / 2;
 			#pragma omp taskgroup  // Start multiple recursive tasks in parallel
 			{
 				#pragma omp task shared(arr)  // Tasks share the same array
-				_mergesort(arr, start, mid + 1, desc, size, cmp);
+				_mergesort(arr, start, mid + 1, size, cmp);
 				#pragma omp task shared(arr)
-				_mergesort(arr, mid + 1, end, desc, size, cmp);
+				_mergesort(arr, mid + 1, end, size, cmp);
 			}
 			// Merge the sorted subarrays
-			_merge(arr, start, mid, end, desc, size, cmp);
+			_merge(arr, start, mid, end, size, cmp);
 		}
 		// If the arrays are small enough just use insertion sort
-		else _insertion_sort(arr, start, end, desc, size, cmp);
+		else _insertion_sort(arr, start, end, size, cmp);
 	}
 }
 
 // The main mergesort function
 // As this is not an in-place implementation the space complexity is O(n)
 // Time complexity is O(n*log_2(n)). Parallelized
-void mergesort(void* arr, const int n, const int desc, size_t size,
-			   int (*cmp)(const void *, const void *, const int)) {
+void mergesort(void* arr, const int n, size_t size,
+			   int (*cmp)(void*, void*)) {
 	if (n <= 1) return;
 	// Initialize parallelizations
 	#pragma omp parallel
 	#pragma omp single
-	_mergesort(arr, 0, n, desc, size, cmp);
+	_mergesort(arr, 0, n, size, cmp);
 }
 
 
-// Necessary functions for quick sort
-
-// Function for swapping the references of two pointers
-// Swaps the values byte by byte
-// From: https://stackoverflow.com/questions/29596151/swap-function-using-void-pointers
-void _swap(void* elem1, void* elem2, size_t size) {
-	unsigned char *ptr1 = elem1, *ptr2 = elem2, temp;
-	for (size_t i = 1; i != size; i++) {
-		temp = ptr1[i];
-		ptr1[i] = ptr2[i];
-		ptr2[i] = temp;
-	}
-}
-
+// QUICKSORT
 
 // Function for three-way partition using random pivot and the
 // Dutch National Flag Algorithm
 int_tuple _partition(void* arr, const int start, const int end, 
-					const int desc, size_t size,
-					int (*cmp)(const void *, const void *, const int)) {
+					 size_t size, int (*cmp)(void*, void*)) {
 	// Handle 2 element case
 	if (end - start <= 1) {
-		if ((*cmp)(_apply(arr, start, size), _apply(arr, end, size), desc) > 0) {
+		if ((*cmp)(_apply(arr, start, size), _apply(arr, end, size)) > 0) {
 			_swap(_apply(arr, start, size), _apply(arr, end, size), size);
 		}
 		int_tuple ret;
@@ -242,12 +237,12 @@ int_tuple _partition(void* arr, const int start, const int end,
 	int j = end;
 	
 	while (mid <= j) {
-		if ((*cmp)(_apply(arr, mid, size), pivot, desc) < 0) {
+		if ((*cmp)(_apply(arr, mid, size), pivot) < 0) {
 			_swap(_apply(arr, i, size), _apply(arr, mid, size), size);
 			i++;
 			mid++;
 		}
-		else if ((*cmp)(_apply(arr, mid, size), pivot, desc) > 0) {
+		else if ((*cmp)(_apply(arr, mid, size), pivot) > 0) {
 			_swap(_apply(arr, mid, size), _apply(arr, j, size), size);
 			j--;
 		}
@@ -263,37 +258,36 @@ int_tuple _partition(void* arr, const int start, const int end,
 
 // Recursively called helper function for quicksort
 void _quicksort(void* arr, const int start, const int end, 
-				const int desc, size_t size,
-				int (*cmp)(const void *, const void *, const int)) {
+				size_t size, int (*cmp)(void*, void*)) {
 	if (start < end) {  // Sanity check
-		if (end - start > THRESHOLD) {  // TODO: Define THRESHOLD in header
-			int_tuple pivots = _partition(arr, start, end, desc, size, cmp);
+		if (end - start > THRESHOLD) {
+			int_tuple pivots = _partition(arr, start, end, size, cmp);
 			#pragma omp taskgroup  // Start multiple recursive tasks in parallel
 			{
 				#pragma omp task shared(arr)  // Tasks share the same array
-				_quicksort(arr, start, pivots._1 + 1, desc, size, cmp);
+				_quicksort(arr, start, pivots._1 + 1, size, cmp);
 				#pragma omp task shared(arr)
-				_quicksort(arr, pivots._2, end, desc, size, cmp);
+				_quicksort(arr, pivots._2, end, size, cmp);
 			}
 		}
 		// If the arrays are small enough just use insertion sort
-		else _insertion_sort(arr, start, end, desc, size, cmp);
+		else _insertion_sort(arr, start, end, size, cmp);
 	}			
 }
 
 // The main quicksort function
 // Space complexity O(1) and time complexity O(n*log_2(n)). Parallelized
-void quicksort(void* arr, const int n, const int desc, size_t size,
-			   int (*cmp)(const void *, const void *, const int)) {
+void quicksort(void* arr, const int n, size_t size,
+			   int (*cmp)(void*, void*)) {
 	if (n <= 1) return;
 	// Initialize parallelizations
 	#pragma omp parallel
 	#pragma omp single
-	_quicksort(arr, 0, n, desc, size, cmp);	   		   
+	_quicksort(arr, 0, n, size, cmp);	   		   
 }
 
 
-// Necessary functions for radix sorts
+// RADIX SORT
 
 // Function for 32-bit signed integer lsd radix sort
 // Space complexity O(n) and time complexity O(n)
@@ -301,8 +295,8 @@ void quicksort(void* arr, const int n, const int desc, size_t size,
 // NOTE! Not parallelized (yet?)
 // NOTE! The comparison function is not used but is included as parameter
 // for compatibility
-void int_radix_sort(void* arr, const int n, const int desc, size_t size,
-			   int (*cmp)(const void *, const void *, const int)) {
+void int_radix_sort(void* arr, const int n, size_t size,
+					int (*cmp)(void*, void*)) {
 	if (n <= 1) return;
 	
 	// Allocate memory for auxiliary arrays
@@ -310,7 +304,7 @@ void int_radix_sort(void* arr, const int n, const int desc, size_t size,
 	int* temp = (int*)malloc(n * sizeof(int));  // Not actually necessary
 	
 	// Copy original array to temp array
-	memcpy(temp, arr, sizeof(int));
+	memcpy(temp, arr, n * sizeof(int));
 	
 	// Allocate memory for the 8-bit arrays
 	int* count = (int*)malloc(256 * sizeof(int));
@@ -338,7 +332,7 @@ void int_radix_sort(void* arr, const int n, const int desc, size_t size,
 		}
 		
 		// Gather the cumulative values of each byte
-		for (int i = 0; i < 256; i++) {
+		for (int i = 1; i < 256; i++) {
 			start[i] = start[i - 1] + count[i - 1];
 		}
 		
@@ -350,17 +344,15 @@ void int_radix_sort(void* arr, const int n, const int desc, size_t size,
 			start[index]++;
 		}
 		
-		// Swap references
-		int* t = temp;
-		temp = result;
-		result = t;
+		// Copy the results to temp array
+		memcpy(temp, result, n * sizeof(int));
 	}
 	
 	// Toggle the sign bit back
 	for (int i = 0; i < n; i++) temp[i] ^= 1 << 31;
 	
 	// Copy the result to original array
-	memcpy(arr, temp, sizeof(int));
+	memcpy(arr, temp, n * sizeof(int));
 	
 	// Free allocated memory
 	free(temp);
@@ -372,13 +364,13 @@ void int_radix_sort(void* arr, const int n, const int desc, size_t size,
 // TODO: Implement floating point radix sort
 
 
-// Helper functions for the main function
+// TESTING FUNCTIONS
 
 // Function that validates that an array is indeed sorted
-int validate_sort(const void* arr, const int n, const int desc, size_t size,
-				  int (*cmp)(const void *, const void *, const int)) {
+int validate_sort(void* arr, const int n, size_t size,
+				  int (*cmp)(void*, void*)) {
 	for (int i = 0; i < n - 1; i++) {
-		if ((*cmp)(_apply(arr, i, size), _apply(arr, i, size), desc) > 0) return 0;
+		if ((*cmp)(_apply(arr, i, size), _apply(arr, i, size)) > 0) return 0;
 	}
 	
 	return 1;			 
@@ -411,17 +403,18 @@ void rand_float_arr(float* arr, const int n, const float upper) {
 // Function for timing the execution time of a function 'sort'
 // As this is used to time sorting algorithms the parameters needed
 // to pass to the function 'sort' are also parameters here.
-double sort_timer(void (*sort)(void *, const int, const int, size_t, int*),
-				  void* arr, const int n, const int desc, size_t size,
-				  int (*cmp)(const void *, const void *, const int)) {
+double sort_timer(void (*sort)(void *, const int, size_t, int (*cmp)(void*, void*)),
+				  void* arr, const int n, size_t size, int (*cmp)(void*, void*)) {
 	clock_t begin = clock();
-	(*sort)(arr, n, desc, size, cmp);
+	(*sort)(arr, n, size, cmp);
 	clock_t end = clock();
 	
 	return (double)(end - begin) / CLOCKS_PER_SEC;
 }
 
 
+/*
+// MAIN FUNCTION (ONLY FOR TESTING PURPOSES)
 int main() {
 	time_t t = time(NULL);
 	srand((unsigned) t);
@@ -437,99 +430,95 @@ int main() {
 	
 	// Copy the array to temporary array for sorting
 	int* small_sort_arr = (int*)malloc(10 * sizeof(int));
-	memcpy(small_sort_arr, small_arr, sizeof(int));
+	memcpy(small_sort_arr, small_arr, 10 * sizeof(int));
 	
 	// Insertion sort
 	printf("\nSorted using insertion sort:\n");
-	insertion_sort(small_sort_arr, 10, 0, sizeof(int), int_cmp);
+	insertion_sort(small_sort_arr, 10, sizeof(int), int_cmp);
 	for (int i = 0; i < 10; i++) {
 		printf("%d ", small_sort_arr[i]);
 	}
-	memcpy(small_sort_arr, small_arr, sizeof(int));
+	memcpy(small_sort_arr, small_arr, 10 * sizeof(int));
 	
 	// Mergesort
 	printf("\nSorted using mergesort:\n");
-	mergesort(small_sort_arr, 10, 0, sizeof(int), int_cmp);
+	mergesort(small_sort_arr, 10, sizeof(int), int_cmp);
 	for (int i = 0; i < 10; i++) {
 		printf("%d ", small_sort_arr[i]);
 	}
-	memcpy(small_sort_arr, small_arr, sizeof(int));
+	memcpy(small_sort_arr, small_arr, 10 * sizeof(int));
 	
 	// Quicksort
 	printf("\nSorted using quicksort:\n");
-	quicksort(small_sort_arr, 10, 0, sizeof(int), int_cmp);
+	quicksort(small_sort_arr, 10, sizeof(int), int_cmp);
 	for (int i = 0; i < 10; i++) {
 		printf("%d ", small_sort_arr[i]);
 	}
-	memcpy(small_sort_arr, small_arr, sizeof(int));
+	memcpy(small_sort_arr, small_arr, 10 * sizeof(int));
 	
 	// Radix sort
 	printf("\nSorted using radix sort:\n");
-	int_radix_sort(small_sort_arr, 10, 0, sizeof(int), int_cmp);
+	int_radix_sort(small_sort_arr, 10, sizeof(int), int_cmp);
 	for (int i = 0; i < 10; i++) {
 		printf("%d ", small_sort_arr[i]);
 	}
-	memcpy(small_sort_arr, small_arr, sizeof(int));
+	memcpy(small_sort_arr, small_arr, 10 * sizeof(int));
 	
-	// Test each algorithm using random array of 100 000 integers
+	// Test each algorithm using random array of 10 000 integers
 	// and time them
-	printf("\n\nTesting all algorithms with an array of 100 000 ints:\n");
-	int* big_arr = (int*)malloc(100000 * sizeof(int));
-	rand_int_arr(big_arr, 100000, 10);
-	int* big_sort_arr = (int*)malloc(100000 * sizeof(int));
-	memcpy(big_sort_arr, big_arr, sizeof(int));
+	printf("\n\nTesting all algorithms with an array of 10 000 ints:\n");
+	int* big_arr = (int*)malloc(10000 * sizeof(int));
+	rand_int_arr(big_arr, 10000, 10);
+	int* big_sort_arr = (int*)malloc(10000 * sizeof(int));
+	memcpy(big_sort_arr, big_arr, 10000 * sizeof(int));
 	
 	// Insertion sort
 	printf("\nTesting insertion sort:\n");
-	double exc_time = sort_timer(insertion_sort, big_sort_arr, 100000, 0, 
-								 sizeof(int), int_cmp);
-	int valid = validate_sort(big_sort_arr, 100000, 0, sizeof(int), int_cmp);
+	double exc_time = sort_timer(insertion_sort, big_sort_arr, 10000, sizeof(int), int_cmp);
+	int valid = validate_sort(big_sort_arr, 10000, sizeof(int), int_cmp);
 	if (valid) {
-		printf("Valid. Execution time: %.2f ms\n", exc_time * 100000.0);
+		printf("Valid. Execution time: %.2f ms\n", exc_time * 1000.0);
 	}
 	else {
-		printf("Invalid. Execution time: %.2f ms\n", exc_time * 100000.0);
+		printf("Invalid. Execution time: %.2f ms\n", exc_time * 1000.0);
 	}
-	memcpy(big_sort_arr, big_arr, sizeof(int));
+	memcpy(big_sort_arr, big_arr, 10000 * sizeof(int));
 	
 	// Merge sort
 	printf("\nTesting mergesort:\n");
-	exc_time = sort_timer(mergesort, big_sort_arr, 100000, 0, 
-								 sizeof(int), int_cmp);
-	valid = validate_sort(big_sort_arr, 100000, 0, sizeof(int), int_cmp);
+	exc_time = sort_timer(mergesort, big_sort_arr, 10000, sizeof(int), int_cmp);
+	valid = validate_sort(big_sort_arr, 10000, sizeof(int), int_cmp);
 	if (valid) {
-		printf("Valid. Execution time: %.2f ms\n", exc_time * 100000.0);
+		printf("Valid. Execution time: %.2f ms\n", exc_time * 1000.0);
 	}
 	else {
-		printf("Invalid. Execution time: %.2f ms\n", exc_time * 100000.0);
+		printf("Invalid. Execution time: %.2f ms\n", exc_time * 1000.0);
 	}
-	memcpy(big_sort_arr, big_arr, sizeof(int));
-	
+	memcpy(big_sort_arr, big_arr, 10000 * sizeof(int));
+
 	// Quicksort
 	printf("\nTesting quicksort:\n");
-	exc_time = sort_timer(quicksort, big_sort_arr, 100000, 0, 
-								 sizeof(int), int_cmp);
-	valid = validate_sort(big_sort_arr, 100000, 0, sizeof(int), int_cmp);
+	exc_time = sort_timer(quicksort, big_sort_arr, 10000, sizeof(int), int_cmp);
+	valid = validate_sort(big_sort_arr, 10000, sizeof(int), int_cmp);
 	if (valid) {
-		printf("Valid. Execution time: %.2f ms\n", exc_time * 100000.0);
+		printf("Valid. Execution time: %.2f ms\n", exc_time * 1000.0);
 	}
 	else {
-		printf("Invalid. Execution time: %.2f ms\n", exc_time * 100000.0);
+		printf("Invalid. Execution time: %.2f ms\n", exc_time * 1000.0);
 	}
-	memcpy(big_sort_arr, big_arr, sizeof(int));
+	memcpy(big_sort_arr, big_arr, 10000 * sizeof(int));
 	
 	// Radix sort
 	printf("\nTesting radix sort:\n");
-	exc_time = sort_timer(int_radix_sort, big_sort_arr, 100000, 0, 
-								 sizeof(int), int_cmp);
-	valid = validate_sort(big_sort_arr, 100000, 0, sizeof(int), int_cmp);
+	exc_time = sort_timer(int_radix_sort, big_sort_arr, 10000, sizeof(int), int_cmp);
+	valid = validate_sort(big_sort_arr, 10000, sizeof(int), int_cmp);
 	if (valid) {
-		printf("Valid. Execution time: %.2f ms\n", exc_time * 100000.0);
+		printf("Valid. Execution time: %.2f ms\n", exc_time * 1000.0);
 	}
 	else {
-		printf("Invalid. Execution time: %.2f ms\n", exc_time * 100000.0);
+		printf("Invalid. Execution time: %.2f ms\n", exc_time * 1000.0);
 	}
-	memcpy(big_sort_arr, big_arr, sizeof(int));
+	memcpy(big_sort_arr, big_arr, 10000 * sizeof(int));
 	
 	// Free allocated memory
 	free(small_arr);
@@ -539,3 +528,5 @@ int main() {
 	
 	return 0;
 }
+*/
+
