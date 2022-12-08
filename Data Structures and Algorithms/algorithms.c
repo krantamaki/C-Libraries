@@ -61,7 +61,7 @@ int _binary_search_low(void* arr, void* key, const int start, const int end,
 
 // Modified binary search that finds the greatest element s.t. elem <= key
 // from the array. Returns the index of the element or -1 if all elements in
-// arr are greater than key. Works in O(log_2(n)) time.
+// arr are greater than the key. Works in O(log_2(n)) time.
 int binary_search_low(void* arr, void* key, const int n, 
 					  size_t size, int (*cmp)(void*, void*)) {
 	return _binary_search_low(arr, key, 0, n, -1, size, cmp);
@@ -92,7 +92,7 @@ int _binary_search_high(void* arr, void* key, const int start, const int end,
 
 // Modified binary search that finds the smallest element s.t. elem >= key
 // from the array. Returns the index of the element or -1 if all elements in
-// arr are smaller than key. Works in O(log_2(n)) time.
+// arr are smaller than the key. Works in O(log_2(n)) time.
 int binary_search_high(void* arr, void* key, const int n, 
 					   size_t size, int (*cmp)(void*, void*)) {
 	return _binary_search_high(arr, key, 0, n, -1, size, cmp);
@@ -106,8 +106,28 @@ int binary_search_high(void* arr, void* key, const int n,
 // and to avoid that new algorithm is implemented here
 int _partition_2way(void* arr, const int start, const int end, 
 					size_t size, int (*cmp)(void*, void*)) {
-						
-						
+	// Find a random pivot
+	int rand_i = (rand() % (end - start)) + start;
+	_swap(_apply(arr, rand_i, size), _apply(arr, end - 1, size), size);
+	void* pivot = _apply(arr, end - 1, size);
+	int i = start;
+	
+	for (int j = start; j < end - 1, j++) {
+		if ((*cmp)(_apply(arr, i, size), pivot) <= 0) {
+			_swap(_apply(arr, i, size), _apply(arr, j, size), size);
+		}
+	}
+	_swap(_apply(arr, i, size), _apply(arr, end - 1, size), size);
+	return i;			
 }
+
+// Standard quickselect algorithm. Finds the k:th smallest element in unsorted
+// array and places it at the correct index. Note! Rest of the elements are
+// not sorted. Has average time complexity of O(n)
+void quickselect(void* arr, const int n, const int k, 
+				 size_t size, int (*cmp)(void*, void*)) {
+					 
+}
+
 
 
