@@ -3,100 +3,8 @@
 #include <string.h>
 #include <time.h>
 #include <omp.h>
+#include "general.h"
 #include "sorting.h"
-
-
-// COMPARISON FUNCTIONS
-
-// Comparison functions are passed to the sorting algorithms and must
-// correspond with the datatype of the elements of the array
-
-// Comparison function for 32-bit signed integers
-int int_cmp(void* ptr1, void* ptr2) {
-	int int1 = *(const int*)ptr1;
-	int int2 = *(const int*)ptr2;
-	return int1 - int2;
-}
-
-// Comparison function for 32-bit floating point numbers
-int float_cmp(void* ptr1, void* ptr2) {
-	float float1 = *(const float*)ptr1;
-	float float2 = *(const float*)ptr2;
-	
-	int cmp;
-	if (float1 == float2) cmp = 0;
-	else if (float1 < float2) cmp = -1;
-	else cmp = 1;
-	return cmp;
-}
-
-// Comparison function for 64-bit floating point numbers
-int double_cmp(void* ptr1, void* ptr2) {
-	double double1 = *(const double*)ptr1;
-	double double2 = *(const double*)ptr2;
-	
-	int cmp;
-	if (double1 == double2) cmp = 0;
-	else if (double1 < double2) cmp = -1;
-	else cmp = 1;
-	return cmp;
-}
-
-// Comparison function for NULL TERMINATED char arrays
-// Differs from string.h libraries strcmp() function by comparing
-// the sum of the byte representations of the chars rather that finding 
-// the first different chars and comparing them
-int str_cmp(void* ptr1, void* ptr2) {
-	char* str1 = (char*)ptr1;
-	char* str2 = (char*)ptr2;
-	
-	int sum1 = 0, sum2 = 0, i = 1;
-	char str_char = str1[0];
-
-	while (str_char != '\0') {
-		sum1 += (int) str_char;
-		str_char = str1[i];
-		i++;
-	}
-
-	i = 1;
-	str_char = str2[0];
-
-	while (str_char != '\0') {
-		sum2 += (int) str_char;
-		str_char = str2[i];
-		i++;
-	}
-
-	return sum1 - sum2;
-}
-
-
-// VOID POINTED ARRAY FUNCTIONS
-
-// Function for getting the ith element of a void pointer array
-void* _apply(void* arr, const int i, size_t size) {
-	return (void*)((char*)arr + (int)size * i);
-}
-
-// Function for placing the value of src into the pointer of dst
-void _place(void* dst, void* src, size_t size) {
-	unsigned char *ptr1 = dst, *ptr2 = src;
-	for (size_t i = 0; i != size; i++) {
-		ptr1[i] = ptr2[i];
-	}
-}
-
-// Function for swapping the references of two pointers
-// Swaps the values byte by byte
-void _swap(void* elem1, void* elem2, size_t size) {
-	unsigned char *ptr1 = elem1, *ptr2 = elem2, temp;
-	for (size_t i = 0; i != size; i++) {
-		temp = ptr1[i];
-		ptr1[i] = ptr2[i];
-		ptr2[i] = temp;
-	}
-}
 
 
 // INSERTION SORT
@@ -104,7 +12,6 @@ void _swap(void* elem1, void* elem2, size_t size) {
 // Insertion sort algorithm for sorting subarray arr[start, end]. 
 // This is defined first as it is what quick- and mergesort algorithms 
 // will default to with small enough array sizes. 
-// Should not be called independently
 // Space complexity of O(1)
 // Best case time complexity O(n) and worst case O(n^2) so not 
 // recommended for larger arrays. NOTE! Not parallelized.
@@ -120,7 +27,7 @@ void _insertion_sort(void *arr, const int start, const int end,
 }
 
 // Function wrapper for calling above defined _insertion_sort for
-// the whole array. Can be called independently.
+// the whole array. 
 void insertion_sort(void *arr, const int n, size_t size,
 					int (*cmp)(void*, void*)) {
 	if (n <= 1) return;
@@ -215,14 +122,14 @@ void mergesort(void* arr, const int n, size_t size,
 
 // Function for three-way partition using random pivot and the
 // Dutch National Flag Algorithm
-int_tuple _partition(void* arr, const int start, const int end, 
+intTuple _partition_3way(void* arr, const int start, const int end, 
 					 size_t size, int (*cmp)(void*, void*)) {
 	// Handle 2 element case
 	if (end - start <= 1) {
 		if ((*cmp)(_apply(arr, start, size), _apply(arr, end, size)) > 0) {
 			_swap(_apply(arr, start, size), _apply(arr, end, size), size);
 		}
-		int_tuple ret;
+		intTuple ret;
 		ret._1 = start;
 		ret._2 = end;
 		return ret;
@@ -249,7 +156,7 @@ int_tuple _partition(void* arr, const int start, const int end,
 		else mid++;
 	}
 	
-	int_tuple ret;
+	intTuple ret;
 	ret._1 = i - 1;
 	ret._2 = j + 1;
 	
@@ -261,7 +168,7 @@ void _quicksort(void* arr, const int start, const int end,
 				size_t size, int (*cmp)(void*, void*)) {
 	if (start < end) {  // Sanity check
 		if (end - start > THRESHOLD) {
-			int_tuple pivots = _partition(arr, start, end, size, cmp);
+			intTuple pivots = _partition_3way(arr, start, end, size, cmp);
 			#pragma omp taskgroup  // Start multiple recursive tasks in parallel
 			{
 				#pragma omp task shared(arr)  // Tasks share the same array
@@ -374,29 +281,6 @@ int validate_sort(void* arr, const int n, size_t size,
 	}
 	
 	return 1;			 
-}
-
-
-// Function for generating a wanted sized array of random 32-bit integers
-// All elements have values in range [0, upper]
-// Assumes that enough memory has already been allocated
-void rand_int_arr(int* arr, const int n, const int upper) {
-	for (int i = 0; i < n; i++) {
-		arr[i] = rand() % upper;
-	}
-}
-
-
-// Function for generating a wanted sized array of random 32-bit floats
-// All elements have values in range [0.0, upper]
-// NOTE! The values don't follow uniform distribution due to the 
-// properties of floating point numbers, but for testing purposes
-// this is considered adequate.
-// Assumes that enough memory has already been allocated
-void rand_float_arr(float* arr, const int n, const float upper) {
-	for (int i = 0; i < n; i++) {
-		arr[i] = ((float)rand() / (float)RAND_MAX) * upper;
-	}
 }
 
 
