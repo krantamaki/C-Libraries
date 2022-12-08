@@ -4,7 +4,6 @@
 #include <float.h>
 #include <math.h>
 #include <time.h>
-#include <omp.h>
 #include "general.h"
 
 

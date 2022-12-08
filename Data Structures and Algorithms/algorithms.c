@@ -104,6 +104,10 @@ int binary_search_high(void* arr, void* key, const int n,
 // Standard two-way partition. The three-way partition from sorting.c
 // would also work, but then this file would have dependency on sorting.h
 // and to avoid that new algorithm is implemented here
-void _partition_2way()
+int _partition_2way(void* arr, const int start, const int end, 
+					size_t size, int (*cmp)(void*, void*)) {
+						
+						
+}
 
 

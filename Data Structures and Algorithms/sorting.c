@@ -123,7 +123,7 @@ void mergesort(void* arr, const int n, size_t size,
 // Function for three-way partition using random pivot and the
 // Dutch National Flag Algorithm
 intTuple _partition_3way(void* arr, const int start, const int end, 
-					 size_t size, int (*cmp)(void*, void*)) {
+					     size_t size, int (*cmp)(void*, void*)) {
 	// Handle 2 element case
 	if (end - start <= 1) {
 		if ((*cmp)(_apply(arr, start, size), _apply(arr, end, size)) > 0) {
@@ -299,6 +299,7 @@ double sort_timer(void (*sort)(void *, const int, size_t, int (*cmp)(void*, void
 
 /*
 // MAIN FUNCTION (ONLY FOR TESTING PURPOSES)
+// To compile this: gcc -fopenmp -Wall sorting.c general.c -o sorting.o
 int main() {
 	time_t t = time(NULL);
 	srand((unsigned) t);
