@@ -3,7 +3,7 @@
 #include <string.h>
 #include <time.h>
 #include <omp.h>
-#include "general.h"
+#include "../general.h"
 #include "searching.h"
 // For testing purposes include the sorting library.
 // #include "sorting.h"
@@ -197,7 +197,9 @@ int peakfinder(void* arr, const int n, size_t size,
 
 /*
 // MAIN FUNCTION (ONLY FOR TESTING PURPOSES)
-// To compile this: gcc -fopenmp -Wall searching.c sorting.c general.c -o searching.o
+// To compile this: 
+// - navigate to C-Libraries folder
+// - gcc -fopenmp -Wall "Data Structures and Algorithms/searching.c" "Data Structures and Algorithms/sorting.c" general.c -o searching.o
 int main() {
 	time_t t = time(NULL);
 	srand((unsigned) t);

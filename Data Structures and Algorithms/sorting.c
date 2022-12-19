@@ -3,7 +3,7 @@
 #include <string.h>
 #include <time.h>
 #include <omp.h>
-#include "general.h"
+#include "../general.h"
 #include "sorting.h"
 
 
@@ -297,9 +297,10 @@ double sort_timer(void (*sort)(void *, const int, size_t, int (*cmp)(void*, void
 }
 
 
-/*
 // MAIN FUNCTION (ONLY FOR TESTING PURPOSES)
-// To compile this: gcc -fopenmp -Wall sorting.c general.c -o sorting.o
+// To compile this: 
+// - navigate to C-Libraries folder
+// - gcc -fopenmp -Wall "Data Structures and Algorithms/sorting.c" general.c -o sorting.o
 int main() {
 	time_t t = time(NULL);
 	srand((unsigned) t);
@@ -413,5 +414,5 @@ int main() {
 	
 	return 0;
 }
-*/
+
 

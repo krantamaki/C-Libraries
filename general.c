@@ -38,6 +38,20 @@ void _swap(void* elem1, void* elem2, size_t size) {
 }
 
 
+// BIT OPERATIONS
+
+// Returns the bit at index i of the given byte
+int get_bit(char byte, int i) {
+	return (byte >> i) & 1;
+}
+
+// Returns the byte with bit at index i toggled
+char toggle_bit(char byte, int i) {
+	byte ^= 1 << i;
+	return byte;
+}
+
+
 // COMPARISON FUNCTIONS
 
 // Comparison functions are passed to the sorting algorithms and must
@@ -117,6 +131,24 @@ int str_cmp(void* ptr1, void* ptr2) {
 	}
 
 	return sum1 - sum2;
+}
+
+
+// USEFUL MATH FUNCTIONS
+
+// Function for computing the power for a given integer
+int _pow(int x, int n) {
+    int ret = 1;
+    for (int i = 0; i < n; i++) {
+        ret *= x;
+    }
+
+    return ret;
+}
+
+// Function for "dividing up" two integers
+int _ceil(int a, int b) {
+    return (a + b - 1) / b;
 }
 
 
