@@ -10,9 +10,8 @@
 // (UNDER CONSTRUCTION!)
 // This is a general linear algebra library using dense matrices 
 // with double precision floating point numbers.
-// Optimized to allow multithreading, vectorization (256 SIMD) and ILP, 
-// but lacks prefetching, improved cache management and proper register 
-// reuse
+// Optimized to allow multithreading, vectorization (256 bit SIMD) and ILP, 
+// but lacks prefetching, improved cache management and proper register reuse
 
 
 // GENERAL FUNCTIONS
@@ -201,6 +200,78 @@ denseMatrix _subarray_dense(denseMatrix A, int n_start, int n_end, int m_start i
 	return ret;
 }
 
+// Function for generating a wanted sized identity matrix
+denseMatrix eye_dense(int n, int m) {
+	// Check that given dimensions are positive
+	if (!(n > 0 && m > 0)) {
+		printf("\nERROR: Matrix dimesions must be positive\n");
+		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+		
+		// Return a matrix which signifies failure
+		denseMatrix ret;
+		ret.n = n;
+		ret.m = m;
+		ret.vects_per_row = _ceil(m, DOUBLE_ELEMS);
+		ret.data = NULL;
+		ret.proper_init = 1;
+		return ret;
+	}
+	
+	denseMatrix ret = alloc_denseMatrix(n, m);
+	
+	// Check that allocation was successful
+	if (ret.proper_init) {
+		printf("\nERROR: Indentity matrix cannot be created as memory allocation failed\n")
+		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+		return ret;
+	}
+	
+	const int vect_num = ret.vects_per_row;
+	// Go over the rows
+	#pragma omp parallel for schedule(dynamic, 1)
+	for (int i = 0; i < n; i++) {
+		// Go over each vector on the row
+		for (int vect = 0; vect < vects_num; vect++) {
+			// Go over each element in the vector
+			for (int elem = 0; elem < DOUBLE_ELEMS; elem++) {
+				int j = vect * DOUBLE_ELEMS + elem;
+				double val = i == j && j < m ? (double)1.0 : (double)0.0;
+				ret.data[vect_num * i + vect][elem] = val;
+			}
+		}
+	}
+	
+	return ret;
+}
+
+// Function for copying the values of one matrix (src) into another (dst)
+int _copy_dense(denseMatrix src, denseMatrix dst) {
+	// Check that the matrix dimensions match
+	if (!(A.n == ret.n && A.m == ret.m)) {
+		printf("\nERROR: Copying failed as matrix dimensions don't match\n")
+		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+		return 1;
+	}
+	// Check that matrices are properly allocated
+	if (A.proper_init || ret.proper_init) {
+		printf("\nERROR: Copying failed as some matrix isn't properly allocated\n")
+		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+		return 1;
+	}
+	
+	int vect_num = A.vects_per_row;
+	// Go over the rows
+	#pragma omp parallel for schedule(dynamic, 1)
+	for (int i = 0; i < A.n; i++) {
+		// Go over each vector on the row
+		for (int vect = 0; vect < vect_num; vect++) {
+			dst.data[vect_num * i + vect] = src.data[vect_num * i + vect];
+		}
+	}
+	
+	return 0;
+}
+
 
 // BASIC MATH OPERATIONS
 
@@ -208,7 +279,7 @@ denseMatrix _subarray_dense(denseMatrix A, int n_start, int n_end, int m_start i
 // Returns 0 if operation is successful, 1 otherwise
 int sum_dense(denseMatrix A, denseMatrix B, denseMatrix ret) {
 	// Check that the matrix dimensions match
-	if (!(A.n == B.n && A.n = ret.n && A.m == B.m && A.m = ret.m)) {
+	if (!(A.n == B.n && A.n == ret.n && A.m == B.m && A.m == ret.m)) {
 		printf("\nERROR: Summation failed as matrix dimensions don't match\n")
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 		return 1;
@@ -240,7 +311,7 @@ int sum_dense(denseMatrix A, denseMatrix B, denseMatrix ret) {
 // Returns 0 if operation is successful 1 otherwise
 int smult_dense(denseMatrix A, denseMatrix ret, double c) {
 	// Check that the matrix dimensions match
-	if (!(A.n = ret.n && A.m = ret.m)) {
+	if (!(A.n == ret.n && A.m == ret.m)) {
 		printf("\nERROR: Multiplication failed as matrix dimensions don't match\n")
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 		return 1;
@@ -252,8 +323,8 @@ int smult_dense(denseMatrix A, denseMatrix ret, double c) {
 		return 1;
 	}
 	
-	double4_t mplr = {c, c, c, c};
-	int vect_num = A.vects_per_row;
+	const double4_t mplr = {c, c, c, c};
+	const int vect_num = A.vects_per_row;
 	// Go over the rows of A
 	#pragma omp parallel for schedule(dynamic, 1)
 	for (int i = 0; i < A.n; i++) {
@@ -270,7 +341,7 @@ int smult_dense(denseMatrix A, denseMatrix ret, double c) {
 // Returns 0 if operation is successful, 1 otherwise
 int negate_dense(denseMatrix A, denseMatrix ret) {
 	// Check that the matrix dimensions match
-	if (!(A.n = ret.n && A.m = ret.m)) {
+	if (!(A.n == ret.n && A.m == ret.m)) {
 		printf("\nERROR: Negation failed as matrix dimensions don't match\n")
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 		return 1;
@@ -294,7 +365,7 @@ int negate_dense(denseMatrix A, denseMatrix ret) {
 // Returns 0 if operation is successful, 1 otherwise
 int diff_dense(denseMatrix A, denseMatrix B, denseMatrix ret) {
 	// Check that the matrix dimensions match
-	if (!(A.n == B.n && A.n = ret.n && A.m == B.m && A.m = ret.m)) {
+	if (!(A.n == B.n && A.n == ret.n && A.m == B.m && A.m == ret.m)) {
 		printf("\nERROR: Difference failed as matrix dimensions don't match\n")
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 		return 1;
@@ -327,7 +398,7 @@ int diff_dense(denseMatrix A, denseMatrix B, denseMatrix ret) {
 // Returns 0 if operation is successful 1 otherwise
 int transpose_dense(denseMatrix A, denseMatrix ret) {
 	// Check that the matrix dimensions match
-	if (!(A.n = ret.m && A.m = ret.n)) {
+	if (!(A.n == ret.m && A.m == ret.n)) {
 		printf("\nERROR: Transpose failed as matrix dimensions don't match\n")
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 		return 1;
@@ -357,7 +428,6 @@ int transpose_dense(denseMatrix A, denseMatrix ret) {
 		}
 	}
 	
-	
 	return 0;
 }
 
@@ -365,7 +435,7 @@ int transpose_dense(denseMatrix A, denseMatrix ret) {
 // Returns 0 if operation is successful 1 otherwise
 int mult_dense(denseMatrix A, denseMatrix B, denseMatrix ret) {
 	// Check that the matrix dimensions match
-	if (!(A.m == B.n && A.n = ret.n && B.m = ret.m)) {
+	if (!(A.m == B.n && A.n == ret.n && B.m == ret.m)) {
 		printf("\nERROR: Multiplication failed as matrix dimensions don't match\n")
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 		return 1;
@@ -393,7 +463,7 @@ int mult_dense(denseMatrix A, denseMatrix B, denseMatrix ret) {
 		return 1;
 	}
 	
-	int vect_num = A.vects_per_row;
+	const int vect_num = A.vects_per_row;
 	// Go over the rows of A
 	#pragma omp parallel for schedule(dynamic, 1)
 	for (int i = 0; i < A.n; i++) {
@@ -423,14 +493,48 @@ int mult_dense(denseMatrix A, denseMatrix B, denseMatrix ret) {
 	return 0;
 }
 
-// Function for inverting a matrix
+
+// ADVANCED MATH OPERATIONS
+
+// Function for inverting a matrix using Crout's algorithm
+// Modified from: https://rosettacode.org/wiki/Gauss-Jordan_matrix_inversion#C
 // Returns 0 if operation is successful 1 otherwise
 int inv_dense(denseMatrix A, denseMatrix ret) {
+	// Check that the matrix dimensions match
+	if (!(A.n == ret.n && A.m == ret.m)) {
+		printf("\nERROR: Inversion failed as matrix dimensions don't match\n")
+		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+		return 1;
+	}
+	// Check that the matrix is symmetric
+	if (!(A.n == A.m)) {
+		printf("\nERROR: Inversion failed as the matrix isn't symmetric\n")
+		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+		return 1;
+	}
+	// Check that matrices are properly allocated
+	if (A.proper_init || ret.proper_init) {
+		printf("\nERROR: Inversion failed as some matrix isn't properly allocated\n")
+		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+		return 1;
+	}
+	
+	// Create an identity matrix of correct size which will converted to the inverse
+	denseMatrix identity = eye_dense(A.n, A.n);
+	// Check that the operation was successful
+	if (identity.proper_init) {
+		printf("\nERROR: Inversion failed as generating an identity matrix failed\n")
+		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+		return 1;
+	}
+	
+	int vect_num = A.vects_per_row;
+	
 	
 }
 
 
-// ADVANCED MATH OPERATIONS
+
 
 // Function for Cholensky decomposition. Works only for s.p.d matrices
 // Returns 1 if operation is successful 0 otherwise
@@ -444,5 +548,12 @@ int PLU_dense(denseMatrix A, denseMatrix P, denseMatrix L, denseMatrix U) {
 	
 }
 
+// Function for computing the eigendecomposition (that is A = SES^-1 
+// where S has the eigenvectors of A as columns and E has the eigenvalues
+// of A on the diagonal) of a given matrix A
+// Returns 1 if operation is successful 0 otherwise
+int eig_dense(denseMatrix A, denseMatrix S, denseMatrix E, denseMatrix S_inv) {
+	
+} 
 
 
