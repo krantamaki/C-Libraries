@@ -131,6 +131,13 @@ int _place_dense(denseMatrix A, int i, int j double val) {
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 		return 1;
 	}
+	// Check that the matrix is properly allocated
+	if (A.proper_init) {
+		printf("\nERROR: Couldn't place the value failed as the matrix isn't properly allocated\n");
+		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+		return 1;
+	}
+	
 	// Find the proper vector and element in said vector for column j
 	int vect = j / DOUBLE_ELEMS;  // Integer division defaults to floor
 	int elem = j % DOUBLE_ELEMS;
@@ -229,6 +236,36 @@ int sum_dense(denseMatrix A, denseMatrix B, denseMatrix ret) {
 	return 0;
 }
 
+// Function for multiplying a denseMatrix with a scalar
+// Returns 0 if operation is successful 1 otherwise
+int smult_dense(denseMatrix A, denseMatrix ret, double c) {
+	// Check that the matrix dimensions match
+	if (!(A.n = ret.n && A.m = ret.m)) {
+		printf("\nERROR: Multiplication failed as matrix dimensions don't match\n")
+		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+		return 1;
+	}
+	// Check that the matrix is properly allocated
+	if (A.proper_init) {
+		printf("\nERROR: Multiplication failed as the matrix isn't properly allocated\n")
+		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+		return 1;
+	}
+	
+	double4_t mplr = {c, c, c, c};
+	int vect_num = A.vects_per_row;
+	// Go over the rows of A
+	#pragma omp parallel for schedule(dynamic, 1)
+	for (int i = 0; i < A.n; i++) {
+		// Go over each vector on the row
+		for (int vect = 0; vect < vect_num; vect++) {
+			ret.data[vect_num * i + vect] = A.data[vect_num * i + vect] * mlpr;
+		}
+	}
+	
+	return 0;
+}
+
 // Function for negating a matrix
 // Returns 0 if operation is successful, 1 otherwise
 int negate_dense(denseMatrix A, denseMatrix ret) {
@@ -244,17 +281,11 @@ int negate_dense(denseMatrix A, denseMatrix ret) {
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 		return 1;
 	}
-	
-	const double4_t neg = {(double)-1.0, (double)-1.0, (double)-1.0, (double)-1.0}; 
-	
-	// Go over the rows
-	#pragma omp parallel for schedule(dynamic, 1)
-	for (int i = 0; i < n; i++) {
-		// Go over the vectors for each row
-		for (int vect = 0; vect < vect_num; vect++) {
-			ret.data[vect_num * i + vect] = neg * A.data[vect_num * i + vect];
-		}
-	}
+	if (smult_dense(A, ret, (double)-1.0)) {
+		printf("\nERROR: Negation failed as an error occured with scalar multiplication\n")
+		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+		return 1;
+	}	
 	
 	return 0;
 }
@@ -321,7 +352,7 @@ int transpose_dense(denseMatrix A, denseMatrix ret) {
 				int vect0 = i / DOUBLE_ELEMS;  // Integer division defaults to floor
 				int elem0 = i % DOUBLE_ELEMS;
 				
-				ret[vect_num0 * j + vect0][elem0] = tmp[elem];
+				ret.data[vect_num0 * j + vect0][elem0] = tmp[elem];
 			}
 		}
 	}
@@ -386,7 +417,6 @@ int mult_dense(denseMatrix A, denseMatrix B, denseMatrix ret) {
 				printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 				return 1;
 			}
-			
 		}
 	}
 	
@@ -410,7 +440,7 @@ int chol_dense(denseMatrix A, denseMatrix L) {
 
 // Function for PLU decomposition
 // Returns 1 if operation is successful 0 otherwise
-int plu_dense(denseMatrix A, denseMatrix P, denseMatrix L, denseMatrix U) {
+int PLU_dense(denseMatrix A, denseMatrix P, denseMatrix L, denseMatrix U) {
 	
 }
 
