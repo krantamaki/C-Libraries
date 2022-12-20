@@ -199,7 +199,8 @@ int peakfinder(void* arr, const int n, size_t size,
 // MAIN FUNCTION (ONLY FOR TESTING PURPOSES)
 // To compile this: 
 // - navigate to C-Libraries folder
-// - gcc -fopenmp -Wall "Data Structures and Algorithms/searching.c" "Data Structures and Algorithms/sorting.c" general.c -o searching.o
+// - compile: gcc -fopenmp -Wall "Data Structures and Algorithms/searching.c" "Data Structures and Algorithms/sorting.c" general.c -o searching.o
+// - run: ./searching.o
 int main() {
 	time_t t = time(NULL);
 	srand((unsigned) t);
