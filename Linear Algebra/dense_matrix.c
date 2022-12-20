@@ -65,6 +65,16 @@ denseMatrix alloc_denseMatrix(int n, int m) {
 	return ret;
 }
 
+
+// Function for freeing the memory allocated for a denseMatrix
+void free_denseMatrix(denseMatrix A) {
+	// Free the data array
+	free(A.data);
+	// Free the main struct
+	free(A);
+}
+
+
 // Function for converting a double array to denseMatrix
 // Takes the first n * m elements from double array so it is assumed
 // that len(arr) >= n * m
@@ -111,8 +121,10 @@ denseMatrix conv_to_denseMatrix(double* arr, int n, int m) {
 	return ret;
 }
 
+
 // Function for getting an individual value from a denseMatrix
 // Assumes 0 <= i < n and 0 <= j < m and that matrix is properly allocated
+// TODO: FIX THE ASSUMPTIONS
 double _apply_dense(denseMatrix A, int i, int j) {
 	// Find the proper vector and element in said vector for column j
 	int vect = j / DOUBLE_ELEMS;  // Integer division defaults to floor
@@ -120,6 +132,7 @@ double _apply_dense(denseMatrix A, int i, int j) {
 	
 	return A.data[A.vects_per_row * i + vect][elem];
 }
+
 
 // Function for placing an individual value into a wanted place in a denseMatrix
 // Returns 0 if operation is successful, 1 otherwise
@@ -132,7 +145,7 @@ int _place_dense(denseMatrix A, int i, int j double val) {
 	}
 	// Check that the matrix is properly allocated
 	if (A.proper_init) {
-		printf("\nERROR: Couldn't place the value failed as the matrix isn't properly allocated\n");
+		printf("\nERROR: Couldn't place the value as the matrix isn't properly allocated\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 		return 1;
 	}
@@ -144,6 +157,7 @@ int _place_dense(denseMatrix A, int i, int j double val) {
 	
 	return 0;
 }
+
 
 // Function for getting an subarray of an existing denseMatrix
 denseMatrix _subarray_dense(denseMatrix A, int n_start, int n_end, int m_start int m_end) {
@@ -160,6 +174,12 @@ denseMatrix _subarray_dense(denseMatrix A, int n_start, int n_end, int m_start i
 		ret.data = NULL;
 		ret.proper_init = 1;
 		return ret;
+	}
+	// Check that the matrix is properly allocated
+	if (A.proper_init) {
+		printf("\nERROR: Couldn't retrieve a subarray as the matrix isn't properly allocated\n");
+		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+		return 1;
 	}
 	
 	denseMatrix ret = alloc_denseMatrix(n_end - n_start, m_end - m_start);
@@ -198,6 +218,43 @@ denseMatrix _subarray_dense(denseMatrix A, int n_start, int n_end, int m_start i
 	}
 	
 	return ret;
+}
+
+
+// (Naive) Function for placing an denseMatrix into a wanted position in another denseMatrix
+int _place_subarray_dense(denseMatrix A, denseMatrix B, n_start, n_end, m_start, m_end) {
+	// Check that the matrix is properly allocated
+	if (A.proper_init || B.proper_init) {
+		printf("\nERROR: Couldn't place the subarray as some matrix isn't properly allocated\n");
+		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+		return 1;
+	}
+	// Check that the dimensions are proper for A
+	if (!(n_start < n_end && n_end <= A.n && m_start < m_end && m_end <= A.m)) {
+		printf("\nERROR: The start index of a slice must be smaller than end index and end index must be equal or smaller than matrix dimension");
+		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+		return 1;
+	}
+	// Check that the dimensinos are proper for B
+	if (!(n_end - n_start = B.n && m_end - m_start == B.m)) {
+		printf("\nERROR: Size of the slice must correspond with the dimensions of the placed subarray");
+		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+		return 1;
+	}
+	
+	// Go over the row values
+	#pragma omp parallel for schedule(dynamic, 1)
+	for (int i0 = 0; i0 < n_end - n_start; i0++) {
+		int i = i0 + n_start;
+		// Go over the column values
+		for (int j0 = 0; j0 < m_end - m_start; j0++) {
+			int j = j0 + m_start;
+			double B_ij = _apply_dense(B, i0, j0);
+			_place_dense(A, i, j, B_ij);
+		}
+	}
+	
+	return 0;
 }
 
 // Function for generating a wanted sized identity matrix
@@ -244,17 +301,20 @@ denseMatrix eye_dense(int n, int m) {
 	return ret;
 }
 
+
 // Function for copying the values of one matrix (src) into another (dst)
-int _copy_dense(denseMatrix src, denseMatrix dst) {
+// NOTE! Could be changed to memcpy implementation (although that would 
+// probably be less eficient)
+int _copy_dense(denseMatrix dst, denseMatrix src) {
 	// Check that the matrix dimensions match
-	if (!(A.n == ret.n && A.m == ret.m)) {
-		printf("\nERROR: Copying failed as matrix dimensions don't match\n")
+	if (!(dst.n == src.n && dst.m == src.m)) {
+		printf("\nERROR: Copying failed as matrix dimensions don't match\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 		return 1;
 	}
 	// Check that matrices are properly allocated
-	if (A.proper_init || ret.proper_init) {
-		printf("\nERROR: Copying failed as some matrix isn't properly allocated\n")
+	if (dst.proper_init || src.proper_init) {
+		printf("\nERROR: Copying failed as some matrix isn't properly allocated\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 		return 1;
 	}
@@ -273,6 +333,7 @@ int _copy_dense(denseMatrix src, denseMatrix dst) {
 }
 
 
+
 // BASIC MATH OPERATIONS
 
 // Function for summing two matrices
@@ -280,13 +341,13 @@ int _copy_dense(denseMatrix src, denseMatrix dst) {
 int sum_dense(denseMatrix A, denseMatrix B, denseMatrix ret) {
 	// Check that the matrix dimensions match
 	if (!(A.n == B.n && A.n == ret.n && A.m == B.m && A.m == ret.m)) {
-		printf("\nERROR: Summation failed as matrix dimensions don't match\n")
+		printf("\nERROR: Summation failed as matrix dimensions don't match\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 		return 1;
 	}
 	// Check that matrices are properly allocated
 	if (A.proper_init || B.proper_init || ret.proper_init) {
-		printf("\nERROR: Summation failed as some matrix isn't properly allocated\n")
+		printf("\nERROR: Summation failed as some matrix isn't properly allocated\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 		return 1;
 	}
@@ -307,18 +368,19 @@ int sum_dense(denseMatrix A, denseMatrix B, denseMatrix ret) {
 	return 0;
 }
 
+
 // Function for multiplying a denseMatrix with a scalar
 // Returns 0 if operation is successful 1 otherwise
 int smult_dense(denseMatrix A, denseMatrix ret, double c) {
 	// Check that the matrix dimensions match
 	if (!(A.n == ret.n && A.m == ret.m)) {
-		printf("\nERROR: Multiplication failed as matrix dimensions don't match\n")
+		printf("\nERROR: Multiplication failed as matrix dimensions don't match\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 		return 1;
 	}
 	// Check that the matrix is properly allocated
 	if (A.proper_init) {
-		printf("\nERROR: Multiplication failed as the matrix isn't properly allocated\n")
+		printf("\nERROR: Multiplication failed as the matrix isn't properly allocated\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 		return 1;
 	}
@@ -337,23 +399,24 @@ int smult_dense(denseMatrix A, denseMatrix ret, double c) {
 	return 0;
 }
 
+
 // Function for negating a matrix
 // Returns 0 if operation is successful, 1 otherwise
 int negate_dense(denseMatrix A, denseMatrix ret) {
 	// Check that the matrix dimensions match
 	if (!(A.n == ret.n && A.m == ret.m)) {
-		printf("\nERROR: Negation failed as matrix dimensions don't match\n")
+		printf("\nERROR: Negation failed as matrix dimensions don't match\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 		return 1;
 	}
 	// Check that matrices are properly allocated
 	if (A.proper_init || ret.proper_init) {
-		printf("\nERROR: Negation failed as some matrix isn't properly allocated\n")
+		printf("\nERROR: Negation failed as some matrix isn't properly allocated\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 		return 1;
 	}
 	if (smult_dense(A, ret, (double)-1.0)) {
-		printf("\nERROR: Negation failed as an error occured with scalar multiplication\n")
+		printf("\nERROR: Negation failed as an error occured with scalar multiplication\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 		return 1;
 	}	
@@ -361,18 +424,19 @@ int negate_dense(denseMatrix A, denseMatrix ret) {
 	return 0;
 }
 
+
 // Function for taking the difference between two matrices (i.e. A - B))
 // Returns 0 if operation is successful, 1 otherwise
 int diff_dense(denseMatrix A, denseMatrix B, denseMatrix ret) {
 	// Check that the matrix dimensions match
 	if (!(A.n == B.n && A.n == ret.n && A.m == B.m && A.m == ret.m)) {
-		printf("\nERROR: Difference failed as matrix dimensions don't match\n")
+		printf("\nERROR: Difference failed as matrix dimensions don't match\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 		return 1;
 	}
 	// Check that matrices are properly allocated
 	if (A.proper_init || B.proper_init || ret.proper_init) {
-		printf("\nERROR: Difference failed as some matrix isn't properly allocated\n")
+		printf("\nERROR: Difference failed as some matrix isn't properly allocated\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 		return 1;
 	}
@@ -394,18 +458,19 @@ int diff_dense(denseMatrix A, denseMatrix B, denseMatrix ret) {
 	return 0;
 }
 
+
 // Function for transposing a given matrix
 // Returns 0 if operation is successful 1 otherwise
 int transpose_dense(denseMatrix A, denseMatrix ret) {
 	// Check that the matrix dimensions match
 	if (!(A.n == ret.m && A.m == ret.n)) {
-		printf("\nERROR: Transpose failed as matrix dimensions don't match\n")
+		printf("\nERROR: Transpose failed as matrix dimensions don't match\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 		return 1;
 	}
 	// Check that matrices are properly allocated
 	if (A.proper_init || ret.proper_init) {
-		printf("\nERROR: Transpose failed as some matrix isn't properly allocated\n")
+		printf("\nERROR: Transpose failed as some matrix isn't properly allocated\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 		return 1;
 	}
@@ -431,18 +496,31 @@ int transpose_dense(denseMatrix A, denseMatrix ret) {
 	return 0;
 }
 
+
+// Function for computing the dot product between two vectors
+int dot_dense(denseMatrix v, denseMatrix u, double* ret) {
+	
+}
+
+
+// Function for computing the cross product between two vectors
+int cross_dense(denseMatrix v, denseMatrix u, denseMatrix ret) {
+	
+}
+
+
 // Function for multiplying two matrices (i.e AB)
 // Returns 0 if operation is successful 1 otherwise
 int mult_dense(denseMatrix A, denseMatrix B, denseMatrix ret) {
 	// Check that the matrix dimensions match
 	if (!(A.m == B.n && A.n == ret.n && B.m == ret.m)) {
-		printf("\nERROR: Multiplication failed as matrix dimensions don't match\n")
+		printf("\nERROR: Multiplication failed as matrix dimensions don't match\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 		return 1;
 	}
 	// Check that matrices are properly allocated
 	if (A.proper_init || B.proper_init || ret.proper_init) {
-		printf("\nERROR: Multiplication failed as some matrix isn't properly allocated\n")
+		printf("\nERROR: Multiplication failed as some matrix isn't properly allocated\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 		return 1;
 	}
@@ -494,9 +572,63 @@ int mult_dense(denseMatrix A, denseMatrix B, denseMatrix ret) {
 }
 
 
+// (Naive) Function for matrix powers
+int pow_dense(denseMatrix A, denseMatrix ret, int k) {
+	// Check that the matrix dimensions match
+	if (!(A.n == ret.n && A.m == ret.m)) {
+		printf("\nERROR: Matrix power failed as matrix dimensions don't match\n");
+		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+		return 1;
+	}
+	// Check that the matrix is symmetric
+	if (!(A.n == A.m)) {
+		printf("\nERROR: Matrix power failed as the matrix isn't symmetric\n");
+		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+		return 1;
+	}
+	// Check that matrices are properly allocated
+	if (A.proper_init || ret.proper_init) {
+		printf("\nERROR: Matrix power failed as some matrix isn't properly allocated\n");
+		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+		return 1;
+	}
+	
+	// Create an identity matrix of correct size which will used to compute the power
+	denseMatrix I = eye_dense(A.n, A.n);
+	// Check that the operation was successful
+	if (I.proper_init) {
+		printf("\nERROR: Matrix power failed as generating an identity matrix failed\n");
+		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+		return 1;
+	}
+	 
+	// Multiply A with itself k times in a loop
+	for (int i = 0; i < k; i++) {
+		if (mult_dense(A, I, I)) {
+			printf("\nERROR: Matrix power failed as matrix multiplication failed\n");
+			printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+			return 1;
+		}
+	}
+	
+	// Copy the contents of I to ret
+	if (_copy_dense(ret, I)) {
+		printf("\nERROR: Matrix power failed as copying the contents to ret failed\n")
+		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+		return 1;
+	}
+	
+	// Free the temporary matrix
+	free_denseMatrix(I);
+	
+	return 0;
+}  
+
+
+
 // ADVANCED MATH OPERATIONS
 
-// Function for inverting a matrix using Crout's algorithm
+// Function for inverting a matrix using Gauss-Jordan method
 // Modified from: https://rosettacode.org/wiki/Gauss-Jordan_matrix_inversion#C
 // Returns 0 if operation is successful 1 otherwise
 int inv_dense(denseMatrix A, denseMatrix ret) {
@@ -520,27 +652,184 @@ int inv_dense(denseMatrix A, denseMatrix ret) {
 	}
 	
 	// Create an identity matrix of correct size which will converted to the inverse
-	denseMatrix identity = eye_dense(A.n, A.n);
+	denseMatrix I = eye_dense(A.n, A.n);
 	// Check that the operation was successful
-	if (identity.proper_init) {
+	if (I.proper_init) {
 		printf("\nERROR: Inversion failed as generating an identity matrix failed\n")
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 		return 1;
 	}
 	
-	int vect_num = A.vects_per_row;
+	// As we don't want to destroy A create a copy of it
+	denseMatrix _A = alloc_denseMatrix(A.n, A.n);
+	if (_A.proper_init) {
+		printf("\nERROR: Inversion failed as allocating memory for a copy of A failed\n")
+		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+		return 1;
+	}
 	
+	// Copy the contents of A into _A
+	if (_copy_dense(_A, A)) {
+		printf("\nERROR: Inversion failed as copying of the contents of A failed\n")
+		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+		return 1;
+	}
 	
+	// Compute the Frobenius norm of _A
+	double4_t frob_vect = {(double)0.0, (double)0.0, (double)0.0, (double)0.0};
+	int vect_num = _A.vects_per_row;
+	// Go over the rows
+	for (int i = 0; i < _A.n; i++) {
+		// Go over vectors per row
+		for (int vect = 0; vect < vect_num; vect++) {
+			frob_vect += _A.data[vect_num * i + vect] * _A.data[vect_num * i + vect];
+		}
+	}
+	double frob = sqrt(frob_vect[0] + frob_vect[1] + frob_vect[2] + frob_vect[3]);
+	
+	// Define the tolerance with the Frobenius norm and machine epsilon
+	double tol = frob * DBL_EPSILON;
+	
+	// Main loop body
+	for (int k = 0; k < _A.n; k++) {
+		// Find the pivot
+		int vect0 = k / DOUBLE_ELEMS;
+		int elem0 = k % DOUBLE_ELEMS;
+		double pivot = fabs(_A.data[vect_num * k + vect0][elem0]);
+		int pivot_i = k;
+		
+		// Go over the remaining rows and check if there is a greater pivot
+		#pragma omp parallel for schedule(dynamic, 1)
+		for (int i = k + 1; i < n; i++) {
+			double opt_pivot = fabs(_A.data[vect_num * i + vect0][elem0]);
+			if (opt_pivot > pivot) {
+				pivot = opt_pivot;
+				pivot_i = i;
+			}
+		}
+		
+		// If the found pivot is smaller than the given tolerance must the
+		// matrix be singular and thus won't have a inverse
+		if (pivot < tol) {
+			printf("\nERROR: Given matrix is singular and thus cannot have an inverse\n")
+			printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+			return 1;
+		}
+		
+		// If the best pivot is not found on row k swap the rows in both 
+		// matrix _A aswell as in the matrix I
+		if (pivot_i != k) {
+			// Swap rows in _A
+			#pragma omp parallel for schedule(dynamic, 1)
+			for (int vect = vect0; vect < vect_num) {
+				double4_t tmp = _A.data[vect_num * k + vect];
+				_A.data[vect_num * k + vect] = _A.data[vect_num * pivot_i + vect];
+				_A.data[vect_num * pivot_i + vect] = tmp;
+			}
+			// Swap rows in I
+			#pragma omp parallel for schedule(dynamic, 1)
+			for (int vect = 0; vect < vect_num) {
+				double4_t tmp = I.data[vect_num * k + vect];
+				I.data[vect_num * k + vect] = I.data[vect_num * pivot_i + vect];
+				I.data[vect_num * pivot_i + vect] = tmp;
+			}
+		}
+		
+		// Scale the rows of both _A and I so that the pivot is 1
+		pivot = (double)1.0 / pivot;
+		double4_t pivot_vect = {pivot, pivot, pivot, pivot};
+		// Scale _A
+		#pragma omp parallel for schedule(dynamic, 1)
+		for (int vect = vect0; vect < vect_num; vect++) {
+			_A.data[vect_num * k + vect] *= pivot_vect;
+		}
+		// Scale I
+		#pragma omp parallel for schedule(dynamic, 1)
+		for (int vect = 0; vect < vect_num; vect++) {
+			I.data[vect_num * k + vect] *= pivot_vect;
+		}
+		
+		// Subtract to get the wanted zeros in _A
+		// Go over the rows
+		#pragma omp parallel for schedule(dynamic, 1)
+		for (int i = 0; i < _A.n; i++) {
+			if (i == k) continue;
+			double row_pivot = _A.data[i * vect_num + vect0][elem0];
+			double4_t row_pivot_vect = {row_pivot, row_pivot, row_pivot, row_pivot};
+			// Go over each vector on the row for _A
+			for (int vect = vect0; vect < vect_num; vect++) {
+				_A.data[vect_num * i + vect] -= _A.data[vect_num * k + vect] * row_pivot_vect;
+			}
+			// Go over each vector on the row for I
+			for (int vect = 0; vect < vect_num; vect++) {
+				I.data[vect_num * i + vect] -= I.data[vect_num * k + vect] * row_pivot_vect;
+			}		
+		}	
+	}
+	
+	// Copy the final inverse from I to ret
+	if (_copy_dense(ret, I)) {
+		printf("\nERROR: Inversion failed as copying the contents to ret failed\n")
+		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+		return 1;
+	}
+	
+	// Free the allocated temporary memory
+	free_denseMatrix(I);
+	free_denseMatrix(_A);
+	
+	return 0;
 }
-
-
 
 
 // Function for Cholensky decomposition. Works only for s.p.d matrices
 // Returns 1 if operation is successful 0 otherwise
 int chol_dense(denseMatrix A, denseMatrix L) {
+	// Check that the matrix dimensions match
+	if (!(A.n == L.n && A.m == L.m)) {
+		printf("\nERROR: Cholensky failed as matrix dimensions don't match\n");
+		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+		return 1;
+	}
+	// Check that the matrix is symmetric
+	if (!(A.n == A.m)) {
+		printf("\nERROR: Cholensky failed as the matrix isn't symmetric\n");
+		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+		return 1;
+	}
+	// Check that matrices are properly allocated
+	if (A.proper_init || L.proper_init) {
+		printf("\nERROR: Cholensky failed as some matrix isn't properly allocated\n");
+		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+		return 1;
+	}
 	
+	int vect_num = A.vects_per_row;
+	// Go over the rows of A
+	for (int i = 0; i < A.n; i++) {
+		// Get the needed subarrays
+		double a11 = _apply_dense(A, i, i);
+		denseMatrix a21 = _subarray_dense(A, i + 1, A.n, i, i + 1);
+		denseMatrix A22 = _subarray_dense(A, i + 1, A.n, i + 1, A.n);
+		// Check that the allocations were successful
+		if (A22.proper_init || a21.proper_init) {
+			printf("\nERROR: Cholensky failed as some subarray allocations failed\n");
+			printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+			return 1;
+		}
+		
+		// Allocate memory for update values for L
+		denseMatrix cross_a21 = 
+		
+		// Compute the update values for L
+		double l11 = sqrt(a11);
+		int mult1 = smult_dense(a21, a21, 1. / l11);
+		
+		
+		
+	}
 }
+
 
 // Function for PLU decomposition
 // Returns 1 if operation is successful 0 otherwise
