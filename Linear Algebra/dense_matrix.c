@@ -520,6 +520,14 @@ int hdiv_dense(denseMatrix A, denseMatrix B, denseMatrix ret) {
 }
 
 
+// Function for computing the Hadamard power (element-wise power)
+// of a given matrix
+// Returns 0 if operation is successful 1 otherwise
+int hpow_dense(denseMatrix A, int k) {
+	
+}
+
+
 // Function for computing the dot product between two vectors
 // Returns 0 if operation is successful 1 otherwise
 int dot_dense(denseMatrix v, denseMatrix u, double* ret) {
@@ -871,13 +879,13 @@ int chol_dense(denseMatrix A, denseMatrix L) {
 		// Compute the update values for L and A
 		int T_success = transpose_dense(a21, a21_T);
 		int m_success = mult_dense(a21, a21_T, B);
-		int s_success = smult_dense(B, B, a11);
+		int s1_success = smult_dense(B, B, 1. / a11);
 		int d_success = diff_dense(A22, B, B);
 		double l11 = sqrt(a11);
 		int s2_success = smult_dense(a21, l11);
 		int s3_success = smult_dense(a21, a21, 1. / l11);
 		// Check that the operations were successful
-		if (T_success || m_success || s_success || d_success || s2_success || s3_success) {
+		if (T_success || m_success || s1_success || d_success || s2_success || s3_success) {
 			printf("\nERROR: Cholensky failed as there was a problem with some math operation\n");
 			printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 			return 1;
@@ -885,10 +893,24 @@ int chol_dense(denseMatrix A, denseMatrix L) {
 		
 		// Place the values back to the arrays
 		int p1_success = _place_dense(L, i, i, l11);
-		int p2_success = _place_subarray_dense(L)
+		int p2_success = _place_subarray_dense(L, l21, i + 1, _A.n, i, i + 1);
+		int p3_success = _place_subarray_dense(_A, B, i + 1, _A.n, i + 1, _A.n);
+		// Check that the placing was successful
+		if (T_success || m_success || s1_success || d_success || s2_success || s3_success) {
+			printf("\nERROR: Cholensky failed as there was a problem with placing some subarray\n");
+			printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+			return 1;
+		}
 		
-		
+		// Free the temporary arrays;
+		free_denseMatrix(a21);
+		free_denseMatrix(a21_T);
+		free_denseMatrix(l21);
+		free_denseMatrix(B);
 	}
+	
+	// Free the copy of A
+	free_denseMatrix(_A);
 	
 	return 0;
 }
@@ -912,6 +934,7 @@ int linsolve_dense(denseMatrix A, denseMatrix x, denseMatrix b) {
 // Function for computing the eigendecomposition (that is A = SES^-1 
 // where S has the eigenvectors of A as columns and E has the eigenvalues
 // of A on the diagonal) of a given matrix A
+// Computed using the QR-algorithm
 // Returns 1 if operation is successful 0 otherwise
 int eig_dense(denseMatrix A, denseMatrix S, denseMatrix E, denseMatrix S_inv) {
 	
