@@ -96,7 +96,6 @@ denseMatrix conv_to_denseMatrix(double* arr, int n, int m) {
 	
 	// Allocate memory for the denseMatrix
 	denseMatrix ret = alloc_denseMatrix(n, m);
-	
 	// Check that allocation was succesful
 	if (ret.proper_init) {
 		printf("\nERROR: Cannot convert to denseMatrix as memory allocation failed\n");
@@ -508,7 +507,30 @@ int transpose_dense(denseMatrix A, denseMatrix ret) {
 // of two denseMatrices
 // Returns 0 if operation is successful 1 otherwise
 int hprod_dense(denseMatrix A, denseMatrix B, denseMatrix ret) {
+	// Check that the matrix dimensions match
+	if (!(A.n == B.n && A.n == ret.n && A.m == B.m && A.m == ret.m)) {
+		printf("\nERROR: Element-wise product failed as matrix dimensions don't match\n");
+		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+		return 1;
+	}
+	// Check that matrices are properly allocated
+	if (A.proper_init || B.proper_init || ret.proper_init) {
+		printf("\nERROR: Element-wise product failed as some matrix isn't properly allocated\n");
+		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+		return 1;
+	}
 	
+	int vect_num = A.vects_per_row;
+	// Go over the rows
+	#pragma omp parallel for schedule(dynamic, 1)
+	for (int i < 0; i < A.n; i++) {
+		// Go over the vectors for each row
+		for (int vect = 0; vect < vect_num; vect++) {
+			ret.data[vect_num * i + vect] = A.data[vect_num * i + vect] * B.data[vect_num * i + vect];
+		}
+	}
+	
+	return 0; 
 }
 
 
@@ -516,22 +538,100 @@ int hprod_dense(denseMatrix A, denseMatrix B, denseMatrix ret) {
 // of two denseMatrices
 // Returns 0 if operation is successful 1 otherwise
 int hdiv_dense(denseMatrix A, denseMatrix B, denseMatrix ret) {
+	// Check that the matrix dimensions match
+	if (!(A.n == B.n && A.n == ret.n && A.m == B.m && A.m == ret.m)) {
+		printf("\nERROR: Element-wise division failed as matrix dimensions don't match\n");
+		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+		return 1;
+	}
+	// Check that matrices are properly allocated
+	if (A.proper_init || B.proper_init || ret.proper_init) {
+		printf("\nERROR: Element-wise division failed as some matrix isn't properly allocated\n");
+		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+		return 1;
+	}
 	
+	int vect_num = A.vects_per_row;
+	// Go over the rows
+	#pragma omp parallel for schedule(dynamic, 1)
+	for (int i < 0; i < A.n; i++) {
+		// Go over the vectors for each row
+		for (int vect = 0; vect < vect_num; vect++) {
+			ret.data[vect_num * i + vect] = A.data[vect_num * i + vect] / B.data[vect_num * i + vect];
+		}
+	}
+	
+	return 0; 
 }
 
 
 // Function for computing the Hadamard power (element-wise power)
 // of a given matrix
 // Returns 0 if operation is successful 1 otherwise
-int hpow_dense(denseMatrix A, int k) {
+int hpow_dense(denseMatrix A, denseMatrix ret, double k) {
+	// Check that the matrix dimensions match
+	if (!(A.n == ret.n && A.m == ret.m)) {
+		printf("\nERROR: Element-wise power failed as matrix dimensions don't match\n");
+		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+		return 1;
+	}
+	// Check that matrices are properly allocated
+	if (A.proper_init || ret.proper_init) {
+		printf("\nERROR: Element-wise power failed as some matrix isn't properly allocated\n");
+		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+		return 1;
+	}
 	
+	int vect_num = A.vects_per_row;
+	// Go over the rows
+	#pragma omp parallel for schedule(dynamic, 1)
+	for (int i < 0; i < A.n; i++) {
+		// Go over the vectors for each row
+		for (int vect = 0; vect < vect_num; vect++) {
+			double4_t tmp = A.data[vect_num * i + vect];
+			for (int elem = 0; elem < DOUBLE_ELEMS; elem++) {
+				ret.data[vect_num * i + vect][elem] = pow(tmp[elem], k);
+			}
+		}
+	}
+	
+	return 0; 
 }
 
 
-// Function for computing the dot product between two vectors
+// Function for computing the dot product between two column vectors
 // Returns 0 if operation is successful 1 otherwise
 int dot_dense(denseMatrix v, denseMatrix u, double* ret) {
+	// Check that the matrix dimensions match
+	if (!(A.m == B.n && A.n == ret.n && B.m == ret.m)) {
+		printf("\nERROR: Dot product failed as matrix dimensions don't match\n");
+		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+		return 1;
+	}
+	// Check that the 'matrices' are column vectors
+	if (!(A.m == 1)) {
+		printf("\nERROR: Dot product failed as denseMatrices are not column vectors\n");
+		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+		return 1;
+	}
+	// Check that matrices are properly allocated
+	if (A.proper_init || B.proper_init || ret.proper_init) {
+		printf("\nERROR: Dot product failed as some matrix isn't properly allocated\n");
+		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+		return 1;
+	}
 	
+	double sum = 0.0;
+	// Go over the rows
+	#pragma omp parallel for schedule(dynamic, 1)
+	for (int i = 0; i < u.n; i++) {
+		sum = u.data[i] * v.data[i];
+	}
+	
+	// Store the found sum
+	*ret = sum;
+	
+	return 0;
 }
 
 
@@ -814,7 +914,7 @@ int inv_dense(denseMatrix A, denseMatrix ret) {
 
 
 // Function for Cholensky decomposition A = LL^T. Works only for s.p.d matrices
-// Returns 1 if operation is successful 0 otherwise
+// Returns 0 if operation is successful 1 otherwise
 int chol_dense(denseMatrix A, denseMatrix L) {
 	// Check that the matrix dimensions match
 	if (!(A.n == L.n && A.m == L.m)) {
@@ -861,7 +961,7 @@ int chol_dense(denseMatrix A, denseMatrix L) {
 		// Get the needed subarrays
 		double a11;
 		int a_success = _apply_dense(_A, &a11, i, i);
-		if (a_success && a <= 0) {
+		if (a_success && a11 <= 0) {
 			printf("\nERROR: Cholensky failed as the given matrix is not symmetric positive definite\n");
 			printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 			return 1;
@@ -917,15 +1017,63 @@ int chol_dense(denseMatrix A, denseMatrix L) {
 
 
 // Function for PLU decomposition
-// Returns 1 if operation is successful 0 otherwise
+// Returns 0 if operation is successful 1 otherwise
 int PLU_dense(denseMatrix A, denseMatrix P, denseMatrix L, denseMatrix U) {
+	// Check that the matrix dimensions match
+	if (!(A.n == L.n && A.m == L.m && A.n == U.n && A.m == U.m && A.n == P.n && A.m == P.m)) {
+		printf("\nERROR: Cholensky failed as matrix dimensions don't match\n");
+		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+		return 1;
+	}
+	// Check that the matrix is symmetric
+	if (!(A.n == A.m)) {
+		printf("\nERROR: Cholensky failed as the matrix isn't symmetric\n");
+		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+		return 1;
+	}
+	// Check that matrices are properly allocated
+	if (A.proper_init || L.proper_init) {
+		printf("\nERROR: Cholensky failed as some matrix isn't properly allocated\n");
+		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+		return 1;
+	}
+	
+	// As we don't want to destroy A create a copy of it
+	denseMatrix _A = alloc_denseMatrix(A.n, A.n);
+	if (_A.proper_init) {
+		printf("\nERROR: Cholensky failed as allocating memory for a copy of A failed\n");
+		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+		return 1;
+	}
+	
+	// Copy the contents of A into _A
+	if (_copy_dense(_A, A)) {
+		printf("\nERROR: Cholensky failed as copying of the contents of A failed\n");
+		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+		return 1;
+	}
+}
+
+
+// Function for solving a system of linear equations Lx = b, where 
+// L is an invertible lower triangular matrix
+// Returns 0 if operation is successful 1 otherwise
+int trilsolve_dense(denseMatrix L, denseMatrix x, denseMatrix b) {
+	
+}
+
+
+// Function for solving a system of linear equations Ux = b, where 
+// U is an invertible upper triangular matrix
+// Returns 0 if operation is successful 1 otherwise
+int triusolve_dense(denseMatrix U, denseMatrix x, denseMatrix b) {
 	
 }
 
 
 // Function for solving a system of linear equations of form Ax = b
 // using PLU decomposition of the matrix A
-// Returns 1 if operation is successful 0 otherwise
+// Returns 0 if operation is successful 1 otherwise
 int linsolve_dense(denseMatrix A, denseMatrix x, denseMatrix b) {
 	
 }
@@ -935,7 +1083,7 @@ int linsolve_dense(denseMatrix A, denseMatrix x, denseMatrix b) {
 // where S has the eigenvectors of A as columns and E has the eigenvalues
 // of A on the diagonal) of a given matrix A
 // Computed using the QR-algorithm
-// Returns 1 if operation is successful 0 otherwise
+// Returns 0 if operation is successful 1 otherwise
 int eig_dense(denseMatrix A, denseMatrix S, denseMatrix E, denseMatrix S_inv) {
 	
 } 
