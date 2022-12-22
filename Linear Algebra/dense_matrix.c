@@ -618,8 +618,6 @@ int transpose_dense(denseMatrix* A, denseMatrix* ret) {
 // TESTED UP TO THIS POINT
 
 
-/*
-
 // Function for computing the Hadamard product (element-wise product A.*B)
 // of two denseMatrices
 // Returns 0 if operation is successful 1 otherwise
@@ -1270,8 +1268,8 @@ int eig_dense(denseMatrix A, denseMatrix S, denseMatrix E, denseMatrix S_inv) {
 	
 }
 
-*/
 
+/*
 // Main function for testing the library
 // To compile this: 
 // - navigate to C-Libraries folder
@@ -1341,4 +1339,4 @@ int main() {
 	free_denseMatrix(a1);
 	free_denseMatrix(B);
 }
-
+*/
