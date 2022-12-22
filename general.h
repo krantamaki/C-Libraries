@@ -8,11 +8,11 @@ typedef struct {
 
 // Define a vector that can hold 8 floats (for 256 bit wide vector registers)
 static const int FLOAT_ELEMS = 8;
-typedef float float8_t __attribute__ ((vector_size (FLOAT_ELEMS * sizeof(float))));
+typedef float float8_t __attribute__ ((__vector_size__ (8 * sizeof(float))));
 
 // Define a vector that can hold 4 doubles (for 256 bit wide vector registers)
 static const int DOUBLE_ELEMS = 4;
-typedef double double4_t __attribute__ ((vector_size (DOUBLE_ELEMS * sizeof(double))));
+typedef double double4_t __attribute__ ((__vector_size__ (4 * sizeof(double))));
 
 // Declare void array helpers
 void* _apply(void* arr, const int i, size_t size);
