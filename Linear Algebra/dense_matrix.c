@@ -285,7 +285,7 @@ int _place_dense(denseMatrix* A, double val, int i, int j) {
 denseMatrix* _subarray_dense(denseMatrix* A, int n_start, int n_end, int m_start, int m_end) {
 	// Check that the dimensions are proper
 	if (!(n_start < n_end && n_end <= A->n && m_start < m_end && m_end <= A->m)) {
-		printf("\nERROR: The start index of a slice must be smaller than end index and end index must be equal or smaller than matrix dimension");
+		printf("\nERROR: The start index of a slice must be smaller than end index and end index must be equal or smaller than matrix dimension\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 		
 		// Return a matrix which signifies failure
@@ -496,6 +496,36 @@ int sum_dense(denseMatrix* A, denseMatrix* B, denseMatrix* ret) {
 }
 
 
+// Function for taking the difference between two matrices (i.e. A - B))
+// Returns 0 if operation is successful, 1 otherwise
+int diff_dense(denseMatrix* A, denseMatrix* B, denseMatrix* ret) {
+	// Check that the matrix dimensions match
+	if (!(A->n == B->n && A->n == ret->n && A->m == B->m && A->m == ret->m)) {
+		printf("\nERROR: Difference failed as matrix dimensions don't match\n");
+		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+		return 1;
+	}
+	// Check that matrices are properly allocated
+	if (A->proper_init || B->proper_init || ret->proper_init) {
+		printf("\nERROR: Difference failed as some matrix isn't properly allocated\n");
+		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+		return 1;
+	}
+	
+	const int vect_num = A->vects_per_row;
+	// Go over the rows
+	#pragma omp parallel for schedule(dynamic, 1)
+	for (int i = 0; i < A->n; i++) {
+		// Go over the vectors for each row
+		for (int vect = 0; vect < vect_num; vect++) {
+			ret->data[vect_num * i + vect] = A->data[vect_num * i + vect] - B->data[vect_num * i + vect];
+		}
+	}
+	
+	return 0;
+}
+
+
 // Function for multiplying a denseMatrix with a scalar
 // Returns 0 if operation is successful 1 otherwise
 int smult_dense(denseMatrix* A, denseMatrix* ret, double c) {
@@ -547,40 +577,6 @@ int negate_dense(denseMatrix* A, denseMatrix* ret) {
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 		return 1;
 	}	
-	
-	return 0;
-}
-
-
-// Function for taking the difference between two matrices (i.e. A - B))
-// Returns 0 if operation is successful, 1 otherwise
-int diff_dense(denseMatrix* A, denseMatrix* B, denseMatrix* ret) {
-	// Check that the matrix dimensions match
-	if (!(A->n == B->n && A->n == ret->n && A->m == B->m && A->m == ret->m)) {
-		printf("\nERROR: Difference failed as matrix dimensions don't match\n");
-		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
-		return 1;
-	}
-	// Check that matrices are properly allocated
-	if (A->proper_init || B->proper_init || ret->proper_init) {
-		printf("\nERROR: Difference failed as some matrix isn't properly allocated\n");
-		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
-		return 1;
-	}
-	
-	// Negate B so it can be summed with A
-	if (negate_dense(B, ret)) {
-		printf("\nERROR: Negation step of difference failed\n");
-		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
-		return 1;
-	}
-	
-	// Sum with A
-	if (sum_dense(A, ret, ret)) {
-		printf("\nERROR: Summation step of difference failed\n");
-		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
-		return 1;
-	}
 	
 	return 0;
 }
@@ -1174,33 +1170,31 @@ int inv_dense(denseMatrix* A, denseMatrix* ret) {
 // TESTED UP TO THIS POINT
 
 
-/*
-
 // Function for Cholensky decomposition A = LL^T. Works only for s.p.d matrices
 // Returns 0 if operation is successful 1 otherwise
-int chol_dense(denseMatrix A, denseMatrix L) {
+int chol_dense(denseMatrix* A, denseMatrix* L) {
 	// Check that the matrix dimensions match
-	if (!(A.n == L.n && A.m == L.m)) {
+	if (!(A->n == L->n && A->m == L->m)) {
 		printf("\nERROR: Cholensky failed as matrix dimensions don't match\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 		return 1;
 	}
 	// Check that the matrix is symmetric
-	if (!(A.n == A.m)) {
+	if (!(A->n == A->m)) {
 		printf("\nERROR: Cholensky failed as the matrix isn't symmetric\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 		return 1;
 	}
 	// Check that matrices are properly allocated
-	if (A.proper_init || L.proper_init) {
+	if (A->proper_init || L->proper_init) {
 		printf("\nERROR: Cholensky failed as some matrix isn't properly allocated\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 		return 1;
 	}
 	
 	// As we don't want to destroy A create a copy of it
-	denseMatrix _A = alloc_denseMatrix(A.n, A.n);
-	if (_A.proper_init) {
+	denseMatrix* _A = alloc_denseMatrix(A->n, A->n);
+	if (_A->proper_init) {
 		printf("\nERROR: Cholensky failed as allocating memory for a copy of A failed\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 	
@@ -1221,42 +1215,38 @@ int chol_dense(denseMatrix A, denseMatrix L) {
 		return 1;
 	}
 	
-	int vect_num = _A.vects_per_row;
 	// Go over the rows of A
-	for (int i = 0; i < _A.n; i++) {
+	for (int i = 0; i < _A->n - 1; i++) {
 		// Allocate memory for update values for L
-		denseMatrix a21_T = alloc_denseMatrix(1, _A.n - (i + 1));
-		denseMatrix B = alloc_denseMatrix(_A.n - (i + 1), _A.n - (i + 1));
-		denseMatrix l21 = alloc_denseMatrix(_A.n - (i + 1), 1);
+		denseMatrix* a21_T = alloc_denseMatrix(1, _A->n - (i + 1));
+		denseMatrix* A22_tmp = alloc_denseMatrix(_A->n - (i + 1), _A->n - (i + 1));
 		
 		// Get the needed subarrays
 		double a11;
 		int a_success = _apply_dense(_A, &a11, i, i);
-		if (a_success && a11 <= 0) {
+		if (a11 <= 0) {
 			printf("\nERROR: Cholensky failed as the given matrix is not symmetric positive definite\n");
 			printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 				
 			// Even in case of error free the allocated memory
 			free_denseMatrix(_A);
 			free_denseMatrix(a21_T);
-			free_denseMatrix(B);
-			free_denseMatrix(l21);
+			free_denseMatrix(A22_tmp);
 		
 			return 1;
 		}
 		
-		denseMatrix a21 = _subarray_dense(_A, i + 1, _A.n, i, i + 1);
-		denseMatrix A22 = _subarray_dense(_A, i + 1, _A.n, i + 1, _A.n);
+		denseMatrix* a21 = _subarray_dense(_A, i + 1, _A->n, i, i + 1);
+		denseMatrix* A22 = _subarray_dense(_A, i + 1, _A->n, i + 1, _A->n);
 		// Check that the allocations were successful
-		if (A22.proper_init || a21.proper_init || B.proper_init || a21_T.proper_init || l21.proper_init || a_success) {
+		if (A22->proper_init || a21->proper_init || A22_tmp->proper_init || a21_T->proper_init || a_success) {
 			printf("\nERROR: Cholensky failed as some subarray allocations failed\n");
 			printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 							
 			// Even in case of error free the allocated memory
 			free_denseMatrix(_A);
 			free_denseMatrix(a21_T);
-			free_denseMatrix(B);
-			free_denseMatrix(l21);
+			free_denseMatrix(A22_tmp);
 			free_denseMatrix(a21);
 			free_denseMatrix(A22);
 		
@@ -1265,22 +1255,21 @@ int chol_dense(denseMatrix A, denseMatrix L) {
 
 		// Compute the update values for L and A
 		int T_success = transpose_dense(a21, a21_T);
-		int m_success = mult_dense(a21, a21_T, B);
-		int s1_success = smult_dense(B, B, 1. / a11);
-		int d_success = diff_dense(A22, B, B);
+		int m_success = mult_dense(a21, a21_T, A22_tmp);
+		int s1_success = smult_dense(A22_tmp, A22_tmp, 1. / a11);
+		int d_success = diff_dense(A22, A22_tmp, A22);
+		
 		double l11 = sqrt(a11);
-		int s2_success = smult_dense(a21, l11);
-		int s3_success = smult_dense(a21, a21, 1. / l11);
+		int s2_success = smult_dense(a21, a21, 1. / l11);
 		// Check that the operations were successful
-		if (T_success || m_success || s1_success || d_success || s2_success || s3_success) {
+		if (T_success || m_success || s1_success || d_success || s2_success) {
 			printf("\nERROR: Cholensky failed as there was a problem with some math operation\n");
 			printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 										
 			// Even in case of error free the allocated memory
 			free_denseMatrix(_A);
 			free_denseMatrix(a21_T);
-			free_denseMatrix(B);
-			free_denseMatrix(l21);
+			free_denseMatrix(A22_tmp);
 			free_denseMatrix(a21);
 			free_denseMatrix(A22);
 		
@@ -1288,19 +1277,18 @@ int chol_dense(denseMatrix A, denseMatrix L) {
 		}
 		
 		// Place the values back to the arrays
-		int p1_success = _place_dense(L, i, i, l11);
-		int p2_success = _place_subarray_dense(L, l21, i + 1, _A.n, i, i + 1);
-		int p3_success = _place_subarray_dense(_A, B, i + 1, _A.n, i + 1, _A.n);
+		int p1_success = _place_dense(L, l11, i, i);
+		int p2_success = _place_subarray_dense(L, a21, i + 1, _A->n, i, i + 1);
+		int p3_success = _place_subarray_dense(_A, A22, i + 1, _A->n, i + 1, _A->n);
 		// Check that the placing was successful
-		if (T_success || m_success || s1_success || d_success || s2_success || s3_success) {
+		if (p1_success || p2_success || p3_success) {
 			printf("\nERROR: Cholensky failed as there was a problem with placing some subarray\n");
 			printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 										
 			// Even in case of error free the allocated memory
 			free_denseMatrix(_A);
 			free_denseMatrix(a21_T);
-			free_denseMatrix(B);
-			free_denseMatrix(l21);
+			free_denseMatrix(A22_tmp);
 			free_denseMatrix(a21);
 			free_denseMatrix(A22);
 		
@@ -1310,8 +1298,31 @@ int chol_dense(denseMatrix A, denseMatrix L) {
 		// Free the temporary arrays;
 		free_denseMatrix(a21);
 		free_denseMatrix(a21_T);
-		free_denseMatrix(l21);
-		free_denseMatrix(B);
+		free_denseMatrix(A22);
+		free_denseMatrix(A22_tmp);
+	}
+	
+	// Place the last value into the array
+	double a11;
+	int a_success = _apply_dense(_A, &a11, L->n - 1, L->n - 1);
+	if (a11 <= 0) {
+		printf("\nERROR: Cholensky failed as the given matrix is not symmetric positive definite\n");
+		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+				
+		// Even in case of error free the allocated memory
+		free_denseMatrix(_A);
+		
+		return 1;
+	}
+	
+	if (a_success || _place_dense(L, sqrt(a11), L->n - 1, L->n - 1)) {
+		printf("\nERROR: Cholensky failed as there was a problem with placing some subarray\n");
+		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+		
+		// Even in case of error free the allocated memory
+		free_denseMatrix(_A);
+		
+		return 1;
 	}
 	
 	// Free the copy of A
@@ -1320,6 +1331,7 @@ int chol_dense(denseMatrix A, denseMatrix L) {
 	return 0;
 }
 
+/*
 
 // Function for generic PLU decomposition. Works for invertible (nonsingular) matrices
 // Returns 0 if operation is successful 1 otherwise
@@ -2067,6 +2079,17 @@ int main() {
 	printf("\nResult of matrix power A.^2\n");
 	print_dense(A);
 	
+	/*
+	// Create vectors u and v and test matrix multiplication with them
+	double arr3[3] = {1.0, 2.0, 3.0};
+	double arr4[3] = {2.0, 3.0, 4.0};
+	denseMatrix* u = conv_to_denseMatrix(arr3, 3, 1);
+	denseMatrix* v = conv_to_denseMatrix(arr4, 1, 3);
+	
+	mult_dense(u, v, C);
+	_print_all(C);
+	*/
+	
 	// Compute the power of B and store it in C
 	pow_dense(B, C, 2);
 	// Print the result (should be A = [6 6 6; 12 12 12; 18 18 18]
@@ -2076,22 +2099,33 @@ int main() {
 	// Try to compute the inverse of C and store it in C (should raise an error)
 	inv_dense(C, C);
 	
-	// Define an invertible matrix and invert it
-	double arr3[9] = {1.0, 4.0, 7.0,
-					  4.0, 5.0, 8.0,
-					  7.0, 8.0, 9.0};
-	denseMatrix* D = conv_to_denseMatrix(arr3, 3, 3);
-	inv_dense(D, D);
-	//Print the result (should be D = [-0.48 0.5 -0.075; 0.5 -1 0.5; -0.075 0.5 -0.28]
+	// Define an invertible matrix and invert it. Store in E
+	double arr5[9] = {9.0, 4.0, 7.0,
+					  4.0, 5.0, 4.0,
+					  7.0, 4.0, 9.0};
+	denseMatrix* D = conv_to_denseMatrix(arr5, 3, 3);
+	denseMatrix* E = alloc_denseMatrix(3, 3);
+	inv_dense(D, E);
+	//Print the result (should be E = [0.3 -0.083 -0.2; -0.083 0.33 -0.083; -0.2 -0.083 0.3]
 	printf("\nResult of matrix inverse D^(-1)\n");
-	print_dense(D);
+	print_dense(E);
 	
-		  	
-	// Free the allocated matrix
+	// Compute the cholensky decomposition of C (should raise an error)
+	chol_dense(C, C);
+	
+	// Compute the cholensky decomposition of D and store in F
+	denseMatrix* F = alloc_denseMatrix(3, 3);
+	chol_dense(D, F);
+	// Print the results (should be F = [3 0 0; 1.333 1.8 0; 2.333 0.5 1.5])
+	printf("\nThe lower triangular from Cholensky decomp D = LL^(T)\n");
+	print_dense(F);
+	
+	// Free the allocated matrices
 	free_denseMatrix(A);
 	free_denseMatrix(B);
 	free_denseMatrix(C);
 	free_denseMatrix(D);
-
+	free_denseMatrix(E);
+	free_denseMatrix(F);
 }
 
