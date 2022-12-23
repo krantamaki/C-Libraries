@@ -874,6 +874,9 @@ int det_dense(denseMatrix A, double* ret) {
 
 // ADVANCED MATH OPERATIONS
 
+// TODO: Free memory in case of error
+
+
 // Function for inverting a matrix using Gauss-Jordan method
 // Modified from: https://rosettacode.org/wiki/Gauss-Jordan_matrix_inversion#C
 // Returns 0 if operation is successful 1 otherwise
@@ -1146,6 +1149,12 @@ int PLU_dense(denseMatrix A, denseMatrix P, denseMatrix L, denseMatrix U) {
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 		return 1;
 	}
+	// Check that the matrices are large enough
+	if (!(A.n > 1)) {
+		printf("\nERROR: PLU failed as the matrix isn't large enough\n");
+		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+		return 1;
+	}
 	// Check that matrices are properly allocated
 	if (A.proper_init || L.proper_init) {
 		printf("\nERROR: PLU failed as some matrix isn't properly allocated\n");
@@ -1159,8 +1168,12 @@ int PLU_dense(denseMatrix A, denseMatrix P, denseMatrix L, denseMatrix U) {
 	// Generate an identity matrix to help with computations
 	denseMatrix P2 = eye_dense(A.n, A.n);
 	
+	// Allocate other helpers
+	denseMatrix a21 = eye_dense(A.n, 1);
+	double a11 = (double)0.0;
+	
 	// Check that the allocations were successful
-	if (_A.proper_init || P2.proper_init) {
+	if (_A.proper_init || P2.proper_init || a21.proper_init) {
 		printf("\nERROR: PLU failed as allocating memory for a copy of A failed\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 		return 1;
@@ -1221,15 +1234,109 @@ int PLU_dense(denseMatrix A, denseMatrix P, denseMatrix L, denseMatrix U) {
 			return 1;
 		}
 		
+		// If the best pivot is not found on row k swap the rows in P2
+		if (pivot_i != k) {
+			#pragma omp parallel for schedule(dynamic, 1)
+			for (int vect = 0; vect < vect_num) {
+				double4_t tmp = P2.data[vect_num * k + vect];
+				P2.data[vect_num * k + vect] = P2.data[vect_num * pivot_i + vect];
+				P2.data[vect_num * pivot_i + vect] = tmp;
+			}
+		}
+		
 		// Allocate memory for temporary matrices
 		denseMatrix PA = alloc_denseMatrix(_A.n, _A.n);
-		denseMatrix a21_2 = alloc_denseMatrix(_A.n - (k + 1), 1);
-		denseMatrix a12 = alloc_denseMatrix
+		denseMatrix P2_T = alloc_denseMatrix(_A.n, _A.n);
+		denseMatrix A22_tmp = alloc_denseMatrix(_A.n - (k + 1), _A.n - (k + 1));
+		double a11_2 = 0;
+		// Check that the allocations were successful
+		if (PA.proper_init || P2_T.proper_init || A22_tmp.proper_init) {
+			printf("\nERROR: PLU decomposition failed as there was a problem with temporary array allocation\n");
+			printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+			return 1;
+		}
 		
+		// Get the needed subarrays
+		int T = transpose_dense(P2, P2_T);
+		int m1 = mult_dense(P2_T, _A, PA);
+		int a = _apply_dense(PA, &a11_2, k, k);
+		denseMatrix a21_2 = _subarray_dense(PA, k + 1, _A.n, k, k + 1);
+		denseMatrix a21_tmp = _subarray_dense(a21, k, _A.n, 0, 1);
+		denseMatrix a12 = _subarray_dense(PA, k, k + 1, k + 1, _A.n);
+		denseMatrix A22 = _subarray_dense(PA, k + 1, _A.n, k + 1, _A.n);
+		denseMatrix P22 = _subarray_dense(P, k, _A.n, k, _A.n);
+		denseMatrix P2_tmp = _subarray_dense(P2, k, _A.n, k, _A.n);
+		denseMatrix P2_tmp_T = _subarray_dense(P2_T, k, _A.n, k, _A.n);
+		// Check that the operations were successful
+		if (a21_2.proper_init || a21_tmp.proper_init || a12.proper_init || A22.proper_init
+			|| P22.proper_init || P2_tmp.proper_init || P2_tmp_T.proper_init || T || m1 || a) {
+			printf("\nERROR: PLU decomposition failed as some subarray allocation failed\n");
+			printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+			return 1;
+		}
 		
-	
-	
+		// Start filling up the matrices
+		int p1 = _place_dense(L, (double)1.0, k, k);
+		int p2 = _place_dense(U, a11_2, k, k);
+		int p3_success = _place_subarray_dense(U, a12, k, k + 1, k + 1, _A.n);
+		
+		// Update _A
+		int m2 = mult_dense(a21_2, a12, A22_tmp);
+		int s1 = smult_dense(A22_tmp, A22_tmp, 1.0 / a11_2;
+		int d = diff_dense(A22, B, A22);
+		int p4 = _place_subarray_dense(_A, A22, k + 1, _A.n, k + 1, _A.n);
+		
+		// Update P and L
+		int m3 = 0, p5 = 0, m4 = 0, s2 = 0, p6 = 0;
+		if (k > 0) {
+			m3 = mult_dense(P22, P2_tmp, P22);
+			p5 = _place_subarray_dense(P, P22, k, _A.n, k, _A.n);
+			m4 = mult_dense(P2_tmp_T, a21_tmp, a21_tmp);
+			s2 = smult_dense(a21_tmp, a21_tmp, 1.0 / a11);
+			p6 = _place_subarray_dense(L, a21_tmp, k, _A.n, k - 1, k); 
+		} 
+		
+		// Update a21 and a11
+		int p7 = _place_subarray_dense(a21, a21_2, k + 1, _A.n, 0, 1);
+		a11 = a11_2;
+		
+		// Check that everything was successful
+		if (p1 || p2 || p3 || p4 || p5 || p6 || p7 || m2 || m3 || s1 || s2 || d) {
+			printf("\nERROR: PLU decomposition failed as an error occured in some math operation\n");
+			printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+			return 1;
+		}
+		
+		// Free temporary arrays
+		free_denseMatrix(PA);
+		free_denseMatrix(P2_T);
+		free_denseMatrix(A22_tmp);
+		free_denseMatrix(a21_2);
+		free_denseMatrix(a21_tmp);
+		free_denseMatrix(a12);
+		free_denseMatrix(A22);
+		free_denseMatrix(P22);
+		free_denseMatrix(P2_tmp);
+		free_denseMatrix(P2_tmp_T);
 	}
+	
+	// Add base case to the matrices
+	// For U
+	double A_nn;
+	int a1_success = _apply_dense(_A, &A_nn, _A.n - 1, _A.n - 1);
+	int p1_success = _place_dense(U, A_nn, _A.n - 1, _A.n - 1);
+	// For L
+	int p2_success = _place_dense(L, (double)1.0, _A.n - 1, _A.n - 1);
+	double P2_nn;
+	int a2_success = _apply_dense(P2, &P2_nn, _A.n - 1, _A.n - 1);
+	double a21_n;
+	int a3_success = _apply_dense(a21, &a21_n, _A.n - 1, 0);
+	int p3_success = _place_dense(L, P2_nn * a21_n / a11, _A.n - 1, _A.n - 2);
+	
+	// Free rest of the arrays
+	free_denseMatrix(_A);
+	free_denseMatrix(P2);
+	free_denseMatrix(a21);
 	
 	return 0;
 }
