@@ -618,6 +618,8 @@ int transpose_dense(denseMatrix* A, denseMatrix* ret) {
 // TESTED UP TO THIS POINT
 
 
+// TODO: Free memory in case of error
+
 // Function for computing the Hadamard product (element-wise product A.*B)
 // of two denseMatrices
 // Returns 0 if operation is successful 1 otherwise
@@ -874,8 +876,6 @@ int det_dense(denseMatrix A, double* ret) {
 
 // ADVANCED MATH OPERATIONS
 
-// TODO: Free memory in case of error
-
 
 // Function for inverting a matrix using Gauss-Jordan method
 // Modified from: https://rosettacode.org/wiki/Gauss-Jordan_matrix_inversion#C
@@ -906,6 +906,10 @@ int inv_dense(denseMatrix A, denseMatrix ret) {
 	if (I.proper_init) {
 		printf("\nERROR: Inversion failed as generating an identity matrix failed\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+									
+		// Even in case of error free the allocated memory
+		free_denseMatrix(I);
+		
 		return 1;
 	}
 	
@@ -914,13 +918,23 @@ int inv_dense(denseMatrix A, denseMatrix ret) {
 	if (_A.proper_init) {
 		printf("\nERROR: Inversion failed as allocating memory for a copy of A failed\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+											
+		// Even in case of error free the allocated memory
+		free_denseMatrix(I);
+		free_denseMatrix(_A);
+		
 		return 1;
 	}
 	
 	// Copy the contents of A into _A
-	if (_copy_dense(_A, A)) {
+	if (copy_dense(_A, A)) {
 		printf("\nERROR: Inversion failed as copying of the contents of A failed\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+													
+		// Even in case of error free the allocated memory
+		free_denseMatrix(I);
+		free_denseMatrix(_A);
+		
 		return 1;
 	}
 	
@@ -962,7 +976,12 @@ int inv_dense(denseMatrix A, denseMatrix ret) {
 		if (pivot < tol) {
 			printf("\nERROR: Given matrix is singular and thus cannot have an inverse\n");
 			printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
-			return 1;
+														
+			// Even in case of error free the allocated memory
+			free_denseMatrix(I);
+			free_denseMatrix(_A);
+		
+			return 1;;
 		}
 		
 		// If the best pivot is not found on row k swap the rows in both 
@@ -1020,6 +1039,11 @@ int inv_dense(denseMatrix A, denseMatrix ret) {
 	if (_copy_dense(ret, I)) {
 		printf("\nERROR: Inversion failed as copying the contents to ret failed\n")
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+													
+		// Even in case of error free the allocated memory
+		free_denseMatrix(I);
+		free_denseMatrix(_A);
+		
 		return 1;
 	}
 	
@@ -1058,13 +1082,21 @@ int chol_dense(denseMatrix A, denseMatrix L) {
 	if (_A.proper_init) {
 		printf("\nERROR: Cholensky failed as allocating memory for a copy of A failed\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+	
+		// Even in case of error free the allocated memory
+		free_denseMatrix(_A);
+		
 		return 1;
 	}
 	
 	// Copy the contents of A into _A
-	if (_copy_dense(_A, A)) {
+	if (copy_dense(_A, A)) {
 		printf("\nERROR: Cholensky failed as copying of the contents of A failed\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+			
+		// Even in case of error free the allocated memory
+		free_denseMatrix(_A);
+		
 		return 1;
 	}
 	
@@ -1082,6 +1114,13 @@ int chol_dense(denseMatrix A, denseMatrix L) {
 		if (a_success && a11 <= 0) {
 			printf("\nERROR: Cholensky failed as the given matrix is not symmetric positive definite\n");
 			printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+				
+			// Even in case of error free the allocated memory
+			free_denseMatrix(_A);
+			free_denseMatrix(a21_T);
+			free_denseMatrix(B);
+			free_denseMatrix(l21);
+		
 			return 1;
 		}
 		
@@ -1091,6 +1130,15 @@ int chol_dense(denseMatrix A, denseMatrix L) {
 		if (A22.proper_init || a21.proper_init || B.proper_init || a21_T.proper_init || l21.proper_init || a_success) {
 			printf("\nERROR: Cholensky failed as some subarray allocations failed\n");
 			printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+							
+			// Even in case of error free the allocated memory
+			free_denseMatrix(_A);
+			free_denseMatrix(a21_T);
+			free_denseMatrix(B);
+			free_denseMatrix(l21);
+			free_denseMatrix(a21);
+			free_denseMatrix(A22);
+		
 			return 1;
 		}
 
@@ -1106,6 +1154,15 @@ int chol_dense(denseMatrix A, denseMatrix L) {
 		if (T_success || m_success || s1_success || d_success || s2_success || s3_success) {
 			printf("\nERROR: Cholensky failed as there was a problem with some math operation\n");
 			printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+										
+			// Even in case of error free the allocated memory
+			free_denseMatrix(_A);
+			free_denseMatrix(a21_T);
+			free_denseMatrix(B);
+			free_denseMatrix(l21);
+			free_denseMatrix(a21);
+			free_denseMatrix(A22);
+		
 			return 1;
 		}
 		
@@ -1117,6 +1174,15 @@ int chol_dense(denseMatrix A, denseMatrix L) {
 		if (T_success || m_success || s1_success || d_success || s2_success || s3_success) {
 			printf("\nERROR: Cholensky failed as there was a problem with placing some subarray\n");
 			printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+										
+			// Even in case of error free the allocated memory
+			free_denseMatrix(_A);
+			free_denseMatrix(a21_T);
+			free_denseMatrix(B);
+			free_denseMatrix(l21);
+			free_denseMatrix(a21);
+			free_denseMatrix(A22);
+		
 			return 1;
 		}
 		
@@ -1176,13 +1242,25 @@ int PLU_dense(denseMatrix A, denseMatrix P, denseMatrix L, denseMatrix U) {
 	if (_A.proper_init || P2.proper_init || a21.proper_init) {
 		printf("\nERROR: PLU failed as allocating memory for a copy of A failed\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+			
+		// Even in case of error free the allocated memory
+		free_denseMatrix(_A);
+		free_denseMatrix(P2);
+		free_denseMatrix(a21);
+		
 		return 1;
 	}
 	
 	// Copy the contents of A into _A
-	if (_copy_dense(_A, A)) {
+	if (copy_dense(_A, A)) {
 		printf("\nERROR: PLU failed as copying of the contents of A failed\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+				
+		// Even in case of error free the allocated memory
+		free_denseMatrix(_A);
+		free_denseMatrix(P2);
+		free_denseMatrix(a21);
+		
 		return 1;
 	}
 	
@@ -1190,6 +1268,12 @@ int PLU_dense(denseMatrix A, denseMatrix P, denseMatrix L, denseMatrix U) {
 	if (init_eye_dense(P)) {
 		printf("\nERROR: PLU failed as initializing P as an identity matrix failed\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+				
+		// Even in case of error free the allocated memory
+		free_denseMatrix(_A);
+		free_denseMatrix(P2);
+		free_denseMatrix(a21);
+		
 		return 1;
 	}
 	
@@ -1231,6 +1315,12 @@ int PLU_dense(denseMatrix A, denseMatrix P, denseMatrix L, denseMatrix U) {
 		if (pivot < tol) {
 			printf("\nERROR: Given matrix is singular and thus cannot have a PLU decomposition\n");
 			printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+					
+			// Even in case of error free the allocated memory
+			free_denseMatrix(_A);
+			free_denseMatrix(P2);
+			free_denseMatrix(a21);
+			
 			return 1;
 		}
 		
@@ -1253,6 +1343,14 @@ int PLU_dense(denseMatrix A, denseMatrix P, denseMatrix L, denseMatrix U) {
 		if (PA.proper_init || P2_T.proper_init || A22_tmp.proper_init) {
 			printf("\nERROR: PLU decomposition failed as there was a problem with temporary array allocation\n");
 			printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+			
+			// Even in case of error free the allocated memory
+			free_denseMatrix(PA);
+			free_denseMatrix(P2_T);
+			free_denseMatrix(_A);
+			free_denseMatrix(P2);
+			free_denseMatrix(a21);
+			
 			return 1;
 		}
 		
@@ -1268,10 +1366,25 @@ int PLU_dense(denseMatrix A, denseMatrix P, denseMatrix L, denseMatrix U) {
 		denseMatrix P2_tmp = _subarray_dense(P2, k, _A.n, k, _A.n);
 		denseMatrix P2_tmp_T = _subarray_dense(P2_T, k, _A.n, k, _A.n);
 		// Check that the operations were successful
-		if (a21_2.proper_init || a21_tmp.proper_init || a12.proper_init || A22.proper_init
-			|| P22.proper_init || P2_tmp.proper_init || P2_tmp_T.proper_init || T || m1 || a) {
+		if (a21_2.proper_init || a21_tmp.proper_init || a12.proper_init || A22.proper_init || P22.proper_init || P2_tmp.proper_init || P2_tmp_T.proper_init || T || m1 || a) {
 			printf("\nERROR: PLU decomposition failed as some subarray allocation failed\n");
 			printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+			
+			// Even in case of error free the allocated memory
+			free_denseMatrix(PA);
+			free_denseMatrix(P2_T);
+			free_denseMatrix(A22_tmp);
+			free_denseMatrix(a21_2);
+			free_denseMatrix(a21_tmp);
+			free_denseMatrix(a12);
+			free_denseMatrix(A22);
+			free_denseMatrix(P22);
+			free_denseMatrix(P2_tmp);
+			free_denseMatrix(P2_tmp_T);
+			free_denseMatrix(_A);
+			free_denseMatrix(P2);
+			free_denseMatrix(a21);
+			
 			return 1;
 		}
 		
@@ -1282,7 +1395,7 @@ int PLU_dense(denseMatrix A, denseMatrix P, denseMatrix L, denseMatrix U) {
 		
 		// Update _A
 		int m2 = mult_dense(a21_2, a12, A22_tmp);
-		int s1 = smult_dense(A22_tmp, A22_tmp, 1.0 / a11_2;
+		int s1 = smult_dense(A22_tmp, A22_tmp, 1.0 / a11_2);
 		int d = diff_dense(A22, B, A22);
 		int p4 = _place_subarray_dense(_A, A22, k + 1, _A.n, k + 1, _A.n);
 		
@@ -1304,6 +1417,22 @@ int PLU_dense(denseMatrix A, denseMatrix P, denseMatrix L, denseMatrix U) {
 		if (p1 || p2 || p3 || p4 || p5 || p6 || p7 || m2 || m3 || s1 || s2 || d) {
 			printf("\nERROR: PLU decomposition failed as an error occured in some math operation\n");
 			printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+			
+			// Even in case of error free the allocated memory
+			free_denseMatrix(PA);
+			free_denseMatrix(P2_T);
+			free_denseMatrix(A22_tmp);
+			free_denseMatrix(a21_2);
+			free_denseMatrix(a21_tmp);
+			free_denseMatrix(a12);
+			free_denseMatrix(A22);
+			free_denseMatrix(P22);
+			free_denseMatrix(P2_tmp);
+			free_denseMatrix(P2_tmp_T);
+			free_denseMatrix(_A);
+			free_denseMatrix(P2);
+			free_denseMatrix(a21);
+			
 			return 1;
 		}
 		
@@ -1333,6 +1462,20 @@ int PLU_dense(denseMatrix A, denseMatrix P, denseMatrix L, denseMatrix U) {
 	int a3_success = _apply_dense(a21, &a21_n, _A.n - 1, 0);
 	int p3_success = _place_dense(L, P2_nn * a21_n / a11, _A.n - 1, _A.n - 2);
 	
+	// Check that the operations were successful
+	if (a1_success || p1_success || p2_success || a2_success || a3_success || p3_success) {
+		printf("\nERROR: PLU decomposition failed as an error occured in some math operation\n");
+		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+		
+		// Even in case of error free the allocated memory
+		free_denseMatrix(_A);
+		free_denseMatrix(P2);
+		free_denseMatrix(a21);
+		
+		return 1;
+	}
+	
+	
 	// Free rest of the arrays
 	free_denseMatrix(_A);
 	free_denseMatrix(P2);
@@ -1346,7 +1489,125 @@ int PLU_dense(denseMatrix A, denseMatrix P, denseMatrix L, denseMatrix U) {
 // L is an invertible lower triangular matrix
 // Returns 0 if operation is successful 1 otherwise
 int trilsolve_dense(denseMatrix L, denseMatrix x, denseMatrix b) {
+	// Check that the matrix dimensions match
+	if (!(L.m == x.n && L.n == b.n && x.m == b.m)) {
+		printf("\nERROR: Trilsolve failed as matrix dimensions don't match\n");
+		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+		return 1;
+	}
+	// Check that c and b are vectors
+	if (!(x_m == 1)) {
+		printf("\nERROR: Passed arguments x and b have to be column vectors\n");
+		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+		return 1;
+	}
+	// Check that the matrix is symmetric
+	if (!(L.n == L.m)) {
+		printf("\nERROR: Trilsolve failed as the matrix isn't symmetric\n");
+		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+		return 1;
+	}
+	// Check that matrices are properly allocated
+	if (L.proper_init || x.proper_init || b.proper_init) {
+		printf("\nERROR: Trilsolve failed as some matrix isn't properly allocated\n");
+		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+		return 1;
+	}
 	
+	// As we don't want to destroy L or b create copies of them
+	denseMatrix _L = alloc_denseMatrix(L.n, L.n);
+	denseMatrix _b = alloc_denseMatrix(b.n, 1);
+	
+	// Check that the allocation was successful
+	if (_L.proper_init || _b.proper_init) {
+		printf("\nERROR: Trilsolve failed as allocating memory for a copy of L failed\n");
+		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+			
+		// Even in case of error free the allocated memory
+		free_denseMatrix(_L);
+		free_denseMatrix(_b);
+		
+		return 1;
+	}
+	
+	// Copy the contents of L into _L
+	if (copy_dense(_L, L) && copy_dense(_b, b)) {
+		printf("\nERROR: Trilsolve failed as copying of the contents of L failed\n");
+		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+				
+		// Even in case of error free the allocated memory
+		free_denseMatrix(_L);
+		free_denseMatrix(_b);
+		
+		return 1;
+	}
+	
+	// The main loop body
+	for (int i = 0; i < _L.n; i++) {
+		// Split the linear system into blocks and allocate memory
+		// for needed subarrays
+		
+		// For L
+		double l11;
+		int a1_success = _apply_dense(_L, &l11, i, i);
+		denseMatrix l21 = _subarray_dense(_L, i + 1, _L.n, i, i + 1);
+		denseMatrix L22 = _subarray_dense(_L, i + 1, _L.n, i + 1, _L.n);
+		
+		// For b
+		double b1;
+		int a2_success = _apply_dense(_b, &b1, i, 0)
+		denseMatrix b2 = _subarray_dense(_b, i + 1, _b.n, 0, 1);
+		
+		// Check that the operations were successful
+		if (l21.proper_init || L22.proper_init || b2.proper_init || a1_success || a2_success) {
+			printf("\nERROR: Trilsolve failed as there was an error in subarray allocation\n");
+			printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+					
+			// Even in case of error free the allocated memory
+			free_denseMatrix(_L);
+			free_denseMatrix(_b);
+			free_denseMatrix(l21);
+			free_denseMatrix(L22);
+			free_denseMatrix(b2);
+			
+			return 1;
+		}
+		
+		// Update x
+		double x_i = b1 / l11;
+		int p_success = _place_dense(x, x_i, i, 0);
+		
+		// Update b
+		int s_success = smult_dense(l21, l21, x_i);
+		int d_success = diff_dense(b2, l21, b2);
+		int ps_success = _place_subarray_dense(_b, b2, i + 1, _b.n, 0, 1);
+		
+		// Check that the operations were successful
+		if (p_success || s_success || d_success || ps_success) {
+			printf("\nERROR: Trilsolve failed as there was an error with some math operation\n");
+			printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+					
+			// Even in case of error free the allocated memory
+			free_denseMatrix(_L);
+			free_denseMatrix(_b);
+			free_denseMatrix(l21);
+			free_denseMatrix(L22);
+			free_denseMatrix(b2);
+			
+			return 1;
+		}
+		
+		// Free temporary arrays
+		free_denseMatrix(l21);
+		free_denseMatrix(L22);
+		free_denseMatrix(b2);
+	}
+	
+	// Free allocated memory
+	free_denseMatrix(_L);
+	free_denseMatrix(_b);
+	
+	return 0;
 }
 
 
@@ -1354,7 +1615,125 @@ int trilsolve_dense(denseMatrix L, denseMatrix x, denseMatrix b) {
 // U is an invertible upper triangular matrix
 // Returns 0 if operation is successful 1 otherwise
 int triusolve_dense(denseMatrix U, denseMatrix x, denseMatrix b) {
+	// Check that the matrix dimensions match
+	if (!(U.m == x.n && U.n == b.n && x.m == b.m)) {
+		printf("\nERROR: Triusolve failed as matrix dimensions don't match\n");
+		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+		return 1;
+	}
+	// Check that c and b are vectors
+	if (!(x_m == 1)) {
+		printf("\nERROR: Passed arguments x and b have to be column vectors\n");
+		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+		return 1;
+	}
+	// Check that the matrix is symmetric
+	if (!(U.n == U.m)) {
+		printf("\nERROR: Triusolve failed as the matrix isn't symmetric\n");
+		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+		return 1;
+	}
+	// Check that matrices are properly allocated
+	if (L.proper_init || x.proper_init || b.proper_init) {
+		printf("\nERROR: Triusolve failed as some matrix isn't properly allocated\n");
+		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+		return 1;
+	}
 	
+	// As we don't want to destroy L or b create copies of them
+	denseMatrix _U = alloc_denseMatrix(U.n, U.n);
+	denseMatrix _b = alloc_denseMatrix(b.n, 1);
+	
+	// Check that the allocation was successful
+	if (_U.proper_init || _b.proper_init) {
+		printf("\nERROR: Triusolve failed as allocating memory for a copy of L failed\n");
+		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+			
+		// Even in case of error free the allocated memory
+		free_denseMatrix(_U);
+		free_denseMatrix(_b);
+		
+		return 1;
+	}
+	
+	// Copy the contents of L into _L
+	if (copy_dense(_U, U) && copy_dense(_b, b)) {
+		printf("\nERROR: Trilsolve failed as copying of the contents of L failed\n");
+		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+				
+		// Even in case of error free the allocated memory
+		free_denseMatrix(_U);
+		free_denseMatrix(_b);
+		
+		return 1;
+	}
+	
+	// The main loop body
+	for (int i = _U.n; i >= 0; i--) {
+		// Split the linear system into blocks and allocate memory
+		// for needed subarrays
+		
+		// For U
+		double u22;
+		int a1_success = _apply_dense(_U, &u22, i, i);
+		denseMatrix u12 = _subarray_dense(_U, 0, i - 1, i, i + 1);
+		denseMatrix U11 = _subarray_dense(_L, 0, i - 1, 0, i - 1);
+		
+		// For b
+		double b2;
+		int a2_success = _apply_dense(_b, &b2, i, 0)
+		denseMatrix b1 = _subarray_dense(_b, 0, i - 1, 0, 1);
+		
+		// Check that the operations were successful
+		if (u12.proper_init || U11.proper_init || b1.proper_init || a1_success || a2_success) {
+			printf("\nERROR: Trilsolve failed as there was an error in subarray allocation\n");
+			printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+					
+			// Even in case of error free the allocated memory
+			free_denseMatrix(_U);
+			free_denseMatrix(_b);
+			free_denseMatrix(u12);
+			free_denseMatrix(U11);
+			free_denseMatrix(b1);
+			
+			return 1;
+		}
+		
+		// Update x
+		double x_i = b2 / u22
+		int p_success = _place_dense(x, x_i, i, 0);
+		
+		// Update b
+		int s_success = smult_dense(u12, u12, x_i);
+		int d_success = diff_dense(b1, u12, b2);
+		int ps_success = _place_subarray_dense(_b, b1, 0, i - 1, 0, 1);
+		
+		// Check that the operations were successful
+		if (p_success || s_success || d_success || ps_success) {
+			printf("\nERROR: Trilsolve failed as there was an error with some math operation\n");
+			printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+					
+			// Even in case of error free the allocated memory
+			free_denseMatrix(_U);
+			free_denseMatrix(_b);
+			free_denseMatrix(u12);
+			free_denseMatrix(U11);
+			free_denseMatrix(b1);
+			
+			return 1;
+		}
+		
+		// Free temporary arrays
+		free_denseMatrix(u12);
+		free_denseMatrix(U11);
+		free_denseMatrix(b1);
+	}
+	
+	// Free allocated memory
+	free_denseMatrix(_U);
+	free_denseMatrix(_b);
+	
+	return 0;
 }
 
 
