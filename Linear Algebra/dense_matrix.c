@@ -1614,44 +1614,41 @@ int PLU_dense(denseMatrix* A, denseMatrix* P, denseMatrix* L, denseMatrix* U) {
 }
 
 
-
-// TESTED UP TO THIS POINT
-
 // Function for solving a system of linear equations Lx = b, where 
 // L is an invertible lower triangular matrix
 // Returns 0 if operation is successful 1 otherwise
-int trilsolve_dense(denseMatrix L, denseMatrix x, denseMatrix b) {
+int trilsolve_dense(denseMatrix* L, denseMatrix* x, denseMatrix* b) {
 	// Check that the matrix dimensions match
-	if (!(L.m == x.n && L.n == b.n && x.m == b.m)) {
+	if (!(L->m == x->n && L->n == b->n && x->m == b->m)) {
 		printf("\nERROR: Trilsolve failed as matrix dimensions don't match\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 		return 1;
 	}
 	// Check that c and b are vectors
-	if (!(x_m == 1)) {
+	if (!(x->m == 1)) {
 		printf("\nERROR: Passed arguments x and b have to be column vectors\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 		return 1;
 	}
 	// Check that the matrix is symmetric
-	if (!(L.n == L.m)) {
+	if (!(L->n == L->m)) {
 		printf("\nERROR: Trilsolve failed as the matrix isn't symmetric\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 		return 1;
 	}
 	// Check that matrices are properly allocated
-	if (L.proper_init || x.proper_init || b.proper_init) {
+	if (L->proper_init || x->proper_init || b->proper_init) {
 		printf("\nERROR: Trilsolve failed as some matrix isn't properly allocated\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 		return 1;
 	}
 	
 	// As we don't want to destroy L or b create copies of them
-	denseMatrix _L = alloc_denseMatrix(L.n, L.n);
-	denseMatrix _b = alloc_denseMatrix(b.n, 1);
+	denseMatrix* _L = alloc_denseMatrix(L->n, L->n);
+	denseMatrix* _b = alloc_denseMatrix(b->n, 1);
 	
 	// Check that the allocation was successful
-	if (_L.proper_init || _b.proper_init) {
+	if (_L->proper_init || _b->proper_init) {
 		printf("\nERROR: Trilsolve failed as allocating memory for a copy of L failed\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 			
@@ -1663,7 +1660,9 @@ int trilsolve_dense(denseMatrix L, denseMatrix x, denseMatrix b) {
 	}
 	
 	// Copy the contents of L into _L
-	if (copy_dense(_L, L) && copy_dense(_b, b)) {
+	int c1_success = copy_dense(_L, L);
+	int c2_success = copy_dense(_b, b);
+	if (c1_success && c2_success) {
 		printf("\nERROR: Trilsolve failed as copying of the contents of L failed\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 				
@@ -1675,23 +1674,35 @@ int trilsolve_dense(denseMatrix L, denseMatrix x, denseMatrix b) {
 	}
 	
 	// The main loop body
-	for (int i = 0; i < _L.n; i++) {
+	for (int i = 0; i < _L->n - 1; i++) {
 		// Split the linear system into blocks and allocate memory
 		// for needed subarrays
 		
 		// For L
 		double l11;
 		int a1_success = _apply_dense(_L, &l11, i, i);
-		denseMatrix l21 = _subarray_dense(_L, i + 1, _L.n, i, i + 1);
-		denseMatrix L22 = _subarray_dense(_L, i + 1, _L.n, i + 1, _L.n);
+		denseMatrix* l21 = _subarray_dense(_L, i + 1, _L->n, i, i + 1);
+		print_dense(l21);
+		// Check that l11 is not 0
+		if (!(l11 != 0)) {
+			printf("\nERROR: Trilsolve failed as L is not invertible\n");
+			printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+					
+			// Even in case of error free the allocated memory
+			free_denseMatrix(_L);
+			free_denseMatrix(_b);
+			free_denseMatrix(l21);
+			
+			return 1;
+		}
 		
 		// For b
 		double b1;
-		int a2_success = _apply_dense(_b, &b1, i, 0)
-		denseMatrix b2 = _subarray_dense(_b, i + 1, _b.n, 0, 1);
+		int a2_success = _apply_dense(_b, &b1, i, 0);
+		denseMatrix* b2 = _subarray_dense(_b, i + 1, _b->n, 0, 1);
 		
 		// Check that the operations were successful
-		if (l21.proper_init || L22.proper_init || b2.proper_init || a1_success || a2_success) {
+		if (l21->proper_init || b2->proper_init || a1_success || a2_success) {
 			printf("\nERROR: Trilsolve failed as there was an error in subarray allocation\n");
 			printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 					
@@ -1699,7 +1710,6 @@ int trilsolve_dense(denseMatrix L, denseMatrix x, denseMatrix b) {
 			free_denseMatrix(_L);
 			free_denseMatrix(_b);
 			free_denseMatrix(l21);
-			free_denseMatrix(L22);
 			free_denseMatrix(b2);
 			
 			return 1;
@@ -1711,28 +1721,55 @@ int trilsolve_dense(denseMatrix L, denseMatrix x, denseMatrix b) {
 		
 		// Update b
 		int s_success = smult_dense(l21, l21, x_i);
+		print_dense(l21);
 		int d_success = diff_dense(b2, l21, b2);
-		int ps_success = _place_subarray_dense(_b, b2, i + 1, _b.n, 0, 1);
+		int ps_success = _place_subarray_dense(_b, b2, i + 1, _b->n, 0, 1);
 		
 		// Check that the operations were successful
 		if (p_success || s_success || d_success || ps_success) {
 			printf("\nERROR: Trilsolve failed as there was an error with some math operation\n");
 			printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
-					
+						
 			// Even in case of error free the allocated memory
 			free_denseMatrix(_L);
 			free_denseMatrix(_b);
 			free_denseMatrix(l21);
-			free_denseMatrix(L22);
 			free_denseMatrix(b2);
-			
+				
 			return 1;
 		}
-		
 		// Free temporary arrays
 		free_denseMatrix(l21);
-		free_denseMatrix(L22);
 		free_denseMatrix(b2);
+	}
+	
+	// Update the final element of x
+	double l11;
+	int a1 = _apply_dense(_L, &l11, _L->n - 1, _L->n - 1);
+	// Check that l11 is not 0
+	if (!(l11 != 0)) {
+		printf("\nERROR: Trilsolve failed as L is not invertible\n");
+		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+					
+		// Even in case of error free the allocated memory
+		free_denseMatrix(_L);
+		free_denseMatrix(_b);
+			
+		return 1;
+	}
+	
+	double b1;
+	int a2 = _apply_dense(_b, &b1, _b->n - 1, 0);
+	int p = _place_dense(x, b1 / l11, x->n - 1, 0);
+	if (a1 || a2 || p) {
+		printf("\nERROR: Trilsolve failed as there was an error in subarray allocation\n");
+		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+					
+		// Even in case of error free the allocated memory
+		free_denseMatrix(_L);
+		free_denseMatrix(_b);
+			
+		return 1;
 	}
 	
 	// Free allocated memory
@@ -1741,6 +1778,10 @@ int trilsolve_dense(denseMatrix L, denseMatrix x, denseMatrix b) {
 	
 	return 0;
 }
+
+
+
+// TESTED UP TO THIS POINT
 
 
 /*
@@ -2125,6 +2166,15 @@ int main() {
 	printf("\nThe upper triag from PLU of D\n");
 	print_dense(U);  // Should be P = [9 4 7; 0 3.222 0.888; 0 0 3.3]
 	
+	// Solve system of equations Lx = b where b is
+	double arr6[3] = {1.0, 2.0, 3.0};
+	denseMatrix* b = conv_to_denseMatrix(arr6, 3, 1);
+	denseMatrix* x = alloc_denseMatrix(3, 1);
+	trilsolve_dense(L, x, b);
+	// Print the results (should be x = [1.0; 1.556; 1.792])
+	printf("\nSolution to system of equations Lx = b\n");
+	print_dense(x);
+	
 	
 	// Free the allocated matrices
 	free_denseMatrix(A);
@@ -2133,5 +2183,10 @@ int main() {
 	free_denseMatrix(D);
 	free_denseMatrix(E);
 	free_denseMatrix(F);
+	free_denseMatrix(P);
+	free_denseMatrix(L);
+	free_denseMatrix(U);
+	free_denseMatrix(b);
+	free_denseMatrix(x);
 }
 
