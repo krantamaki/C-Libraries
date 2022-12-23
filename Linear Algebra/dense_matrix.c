@@ -738,7 +738,7 @@ int hpow_dense(denseMatrix* A, denseMatrix* ret, double k) {
 // Returns 0 if operation is successful 1 otherwise
 int dot_dense(denseMatrix* v, denseMatrix* u, double* ret) {
 	// Check that the matrix dimensions match
-	if (!(u->m == v->n && u->n == v->n)) {
+	if (!(u->m == v->m && u->n == v->n)) {
 		printf("\nERROR: Dot product failed as matrix dimensions don't match\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 		return 1;
@@ -758,7 +758,6 @@ int dot_dense(denseMatrix* v, denseMatrix* u, double* ret) {
 	
 	double sum = 0.0;
 	// Go over the rows
-	#pragma omp parallel for schedule(dynamic, 1)
 	for (int i = 0; i < u->n; i++) {
 		sum += u->data[i][0] * v->data[i][0];
 	}
@@ -1166,10 +1165,6 @@ int inv_dense(denseMatrix* A, denseMatrix* ret) {
 }
 
 
-
-// TESTED UP TO THIS POINT
-
-
 // Function for Cholensky decomposition A = LL^T. Works only for s.p.d matrices
 // Returns 0 if operation is successful 1 otherwise
 int chol_dense(denseMatrix* A, denseMatrix* L) {
@@ -1331,48 +1326,48 @@ int chol_dense(denseMatrix* A, denseMatrix* L) {
 	return 0;
 }
 
-/*
 
 // Function for generic PLU decomposition. Works for invertible (nonsingular) matrices
+// NOTE! The passed arguments P, L and U should all be initialized to 0
 // Returns 0 if operation is successful 1 otherwise
-int PLU_dense(denseMatrix A, denseMatrix P, denseMatrix L, denseMatrix U) {
+int PLU_dense(denseMatrix* A, denseMatrix* P, denseMatrix* L, denseMatrix* U) {
 	// Check that the matrix dimensions match
-	if (!(A.n == L.n && A.m == L.m && A.n == U.n && A.m == U.m && A.n == P.n && A.m == P.m)) {
+	if (!(A->n == L->n && A->m == L->m && A->n == U->n && A->m == U->m && A->n == P->n && A->m == P->m)) {
 		printf("\nERROR: PLU failed as matrix dimensions don't match\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 		return 1;
 	}
 	// Check that the matrix is symmetric
-	if (!(A.n == A.m)) {
+	if (!(A->n == A->m)) {
 		printf("\nERROR: PLU failed as the matrix isn't symmetric\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 		return 1;
 	}
 	// Check that the matrices are large enough
-	if (!(A.n > 1)) {
+	if (!(A->n > 1)) {
 		printf("\nERROR: PLU failed as the matrix isn't large enough\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 		return 1;
 	}
 	// Check that matrices are properly allocated
-	if (A.proper_init || L.proper_init) {
+	if (A->proper_init || L->proper_init) {
 		printf("\nERROR: PLU failed as some matrix isn't properly allocated\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 		return 1;
 	}
 	
 	// As we don't want to destroy A create a copy of it
-	denseMatrix _A = alloc_denseMatrix(A.n, A.n);
+	denseMatrix* _A = alloc_denseMatrix(A->n, A->n);
 	
 	// Generate an identity matrix to help with computations
-	denseMatrix P2 = eye_dense(A.n, A.n);
+	denseMatrix* P2 = eye_dense(A->n, A->n);
 	
 	// Allocate other helpers
-	denseMatrix a21 = eye_dense(A.n, 1);
+	denseMatrix* a21 = eye_dense(A->n, 1);
 	double a11 = (double)0.0;
 	
 	// Check that the allocations were successful
-	if (_A.proper_init || P2.proper_init || a21.proper_init) {
+	if (_A->proper_init || P2->proper_init || a21->proper_init) {
 		printf("\nERROR: PLU failed as allocating memory for a copy of A failed\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 			
@@ -1412,12 +1407,12 @@ int PLU_dense(denseMatrix A, denseMatrix P, denseMatrix L, denseMatrix U) {
 	
 	// Compute the Frobenius norm of _A
 	double4_t frob_vect = {(double)0.0, (double)0.0, (double)0.0, (double)0.0};
-	int vect_num = _A.vects_per_row;
+	int vect_num = _A->vects_per_row;
 	// Go over the rows
-	for (int i = 0; i < _A.n; i++) {
+	for (int n = 0; n < _A->n; n++) {
 		// Go over vectors per row
 		for (int vect = 0; vect < vect_num; vect++) {
-			frob_vect += _A.data[vect_num * i + vect] * _A.data[vect_num * i + vect];
+			frob_vect += _A->data[vect_num * n + vect] * _A->data[vect_num * n + vect];
 		}
 	}
 	double frob = sqrt(frob_vect[0] + frob_vect[1] + frob_vect[2] + frob_vect[3]);
@@ -1426,17 +1421,17 @@ int PLU_dense(denseMatrix A, denseMatrix P, denseMatrix L, denseMatrix U) {
 	double tol = frob * DBL_EPSILON;
 	
 	// Main loop body
-	for (int k = 0; k < _A.n; k++) {
+	for (int k = 0; k < _A->n - 1; k++) {
 		// Find the pivot
 		int vect0 = k / DOUBLE_ELEMS;
 		int elem0 = k % DOUBLE_ELEMS;
-		double pivot = fabs(_A.data[vect_num * k + vect0][elem0]);
+		double pivot = fabs(_A->data[vect_num * k + vect0][elem0]);
 		int pivot_i = k;
 		
 		// Go over the remaining rows and check if there is a greater pivot
 		#pragma omp parallel for schedule(dynamic, 1)
-		for (int i = k + 1; i < n; i++) {
-			double opt_pivot = fabs(_A.data[vect_num * i + vect0][elem0]);
+		for (int i = k + 1; i < _A->n; i++) {
+			double opt_pivot = fabs(_A->data[vect_num * i + vect0][elem0]);
 			if (opt_pivot > pivot) {
 				pivot = opt_pivot;
 				pivot_i = i;
@@ -1460,26 +1455,27 @@ int PLU_dense(denseMatrix A, denseMatrix P, denseMatrix L, denseMatrix U) {
 		// If the best pivot is not found on row k swap the rows in P2
 		if (pivot_i != k) {
 			#pragma omp parallel for schedule(dynamic, 1)
-			for (int vect = 0; vect < vect_num) {
-				double4_t tmp = P2.data[vect_num * k + vect];
-				P2.data[vect_num * k + vect] = P2.data[vect_num * pivot_i + vect];
-				P2.data[vect_num * pivot_i + vect] = tmp;
+			for (int vect = 0; vect < vect_num; vect++) {
+				double4_t tmp = P2->data[vect_num * k + vect];
+				P2->data[vect_num * k + vect] = P2->data[vect_num * pivot_i + vect];
+				P2->data[vect_num * pivot_i + vect] = tmp;
 			}
 		}
 		
 		// Allocate memory for temporary matrices
-		denseMatrix PA = alloc_denseMatrix(_A.n, _A.n);
-		denseMatrix P2_T = alloc_denseMatrix(_A.n, _A.n);
-		denseMatrix A22_tmp = alloc_denseMatrix(_A.n - (k + 1), _A.n - (k + 1));
+		denseMatrix* PA = alloc_denseMatrix(_A->n, _A->n);
+		denseMatrix* P2_T = alloc_denseMatrix(_A->n, _A->n);
+		denseMatrix* A22_tmp = alloc_denseMatrix(_A->n - (k + 1), _A->n - (k + 1));
 		double a11_2 = 0;
 		// Check that the allocations were successful
-		if (PA.proper_init || P2_T.proper_init || A22_tmp.proper_init) {
+		if (PA->proper_init || P2_T->proper_init || A22_tmp->proper_init) {
 			printf("\nERROR: PLU decomposition failed as there was a problem with temporary array allocation\n");
 			printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 			
 			// Even in case of error free the allocated memory
 			free_denseMatrix(PA);
 			free_denseMatrix(P2_T);
+			free_denseMatrix(A22_tmp);
 			free_denseMatrix(_A);
 			free_denseMatrix(P2);
 			free_denseMatrix(a21);
@@ -1491,15 +1487,15 @@ int PLU_dense(denseMatrix A, denseMatrix P, denseMatrix L, denseMatrix U) {
 		int T = transpose_dense(P2, P2_T);
 		int m1 = mult_dense(P2_T, _A, PA);
 		int a = _apply_dense(PA, &a11_2, k, k);
-		denseMatrix a21_2 = _subarray_dense(PA, k + 1, _A.n, k, k + 1);
-		denseMatrix a21_tmp = _subarray_dense(a21, k, _A.n, 0, 1);
-		denseMatrix a12 = _subarray_dense(PA, k, k + 1, k + 1, _A.n);
-		denseMatrix A22 = _subarray_dense(PA, k + 1, _A.n, k + 1, _A.n);
-		denseMatrix P22 = _subarray_dense(P, k, _A.n, k, _A.n);
-		denseMatrix P2_tmp = _subarray_dense(P2, k, _A.n, k, _A.n);
-		denseMatrix P2_tmp_T = _subarray_dense(P2_T, k, _A.n, k, _A.n);
+		denseMatrix* a21_2 = _subarray_dense(PA, k + 1, _A->n, k, k + 1);
+		denseMatrix* a21_tmp = _subarray_dense(a21, k, _A->n, 0, 1);
+		denseMatrix* a12 = _subarray_dense(PA, k, k + 1, k + 1, _A->n);
+		denseMatrix* A22 = _subarray_dense(PA, k + 1, _A->n, k + 1, _A->n);
+		denseMatrix* P22 = _subarray_dense(P, k, _A->n, k, _A->n);
+		denseMatrix* P2_tmp = _subarray_dense(P2, k, _A->n, k, _A->n);
+		denseMatrix* P2_tmp_T = _subarray_dense(P2_T, k, _A->n, k, _A->n);
 		// Check that the operations were successful
-		if (a21_2.proper_init || a21_tmp.proper_init || a12.proper_init || A22.proper_init || P22.proper_init || P2_tmp.proper_init || P2_tmp_T.proper_init || T || m1 || a) {
+		if (a21_2->proper_init || a21_tmp->proper_init || a12->proper_init || A22->proper_init || P22->proper_init || P2_tmp->proper_init || P2_tmp_T->proper_init || T || m1 || a) {
 			printf("\nERROR: PLU decomposition failed as some subarray allocation failed\n");
 			printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 			
@@ -1524,30 +1520,30 @@ int PLU_dense(denseMatrix A, denseMatrix P, denseMatrix L, denseMatrix U) {
 		// Start filling up the matrices
 		int p1 = _place_dense(L, (double)1.0, k, k);
 		int p2 = _place_dense(U, a11_2, k, k);
-		int p3_success = _place_subarray_dense(U, a12, k, k + 1, k + 1, _A.n);
+		int p3 = _place_subarray_dense(U, a12, k, k + 1, k + 1, _A->n);
 		
 		// Update _A
 		int m2 = mult_dense(a21_2, a12, A22_tmp);
 		int s1 = smult_dense(A22_tmp, A22_tmp, 1.0 / a11_2);
-		int d = diff_dense(A22, B, A22);
-		int p4 = _place_subarray_dense(_A, A22, k + 1, _A.n, k + 1, _A.n);
+		int d = diff_dense(A22, A22_tmp, A22);
+		int p4 = _place_subarray_dense(_A, A22, k + 1, _A->n, k + 1, _A->n);
 		
 		// Update P and L
 		int m3 = 0, p5 = 0, m4 = 0, s2 = 0, p6 = 0;
 		if (k > 0) {
 			m3 = mult_dense(P22, P2_tmp, P22);
-			p5 = _place_subarray_dense(P, P22, k, _A.n, k, _A.n);
+			p5 = _place_subarray_dense(P, P22, k, _A->n, k, _A->n);
 			m4 = mult_dense(P2_tmp_T, a21_tmp, a21_tmp);
 			s2 = smult_dense(a21_tmp, a21_tmp, 1.0 / a11);
-			p6 = _place_subarray_dense(L, a21_tmp, k, _A.n, k - 1, k); 
+			p6 = _place_subarray_dense(L, a21_tmp, k, _A->n, k - 1, k); 
 		} 
 		
 		// Update a21 and a11
-		int p7 = _place_subarray_dense(a21, a21_2, k + 1, _A.n, 0, 1);
+		int p7 = _place_subarray_dense(a21, a21_2, k + 1, _A->n, 0, 1);
 		a11 = a11_2;
 		
 		// Check that everything was successful
-		if (p1 || p2 || p3 || p4 || p5 || p6 || p7 || m2 || m3 || s1 || s2 || d) {
+		if (p1 || p2 || p3 || p4 || p5 || p6 || p7 || m2 || m3 || m4 || s1 || s2 || d) {
 			printf("\nERROR: PLU decomposition failed as an error occured in some math operation\n");
 			printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 			
@@ -1585,15 +1581,15 @@ int PLU_dense(denseMatrix A, denseMatrix P, denseMatrix L, denseMatrix U) {
 	// Add base case to the matrices
 	// For U
 	double A_nn;
-	int a1_success = _apply_dense(_A, &A_nn, _A.n - 1, _A.n - 1);
-	int p1_success = _place_dense(U, A_nn, _A.n - 1, _A.n - 1);
+	int a1_success = _apply_dense(_A, &A_nn, _A->n - 1, _A->n - 1);
+	int p1_success = _place_dense(U, A_nn, _A->n - 1, _A->n - 1);
 	// For L
-	int p2_success = _place_dense(L, (double)1.0, _A.n - 1, _A.n - 1);
+	int p2_success = _place_dense(L, (double)1.0, _A->n - 1, _A->n - 1);
 	double P2_nn;
-	int a2_success = _apply_dense(P2, &P2_nn, _A.n - 1, _A.n - 1);
+	int a2_success = _apply_dense(P2, &P2_nn, _A->n - 1, _A->n - 1);
 	double a21_n;
-	int a3_success = _apply_dense(a21, &a21_n, _A.n - 1, 0);
-	int p3_success = _place_dense(L, P2_nn * a21_n / a11, _A.n - 1, _A.n - 2);
+	int a3_success = _apply_dense(a21, &a21_n, _A->n - 1, 0);
+	int p3_success = _place_dense(L, P2_nn * a21_n / a11, _A->n - 1, _A->n - 2);
 	
 	// Check that the operations were successful
 	if (a1_success || p1_success || p2_success || a2_success || a3_success || p3_success) {
@@ -1617,6 +1613,9 @@ int PLU_dense(denseMatrix A, denseMatrix P, denseMatrix L, denseMatrix U) {
 	return 0;
 }
 
+
+
+// TESTED UP TO THIS POINT
 
 // Function for solving a system of linear equations Lx = b, where 
 // L is an invertible lower triangular matrix
@@ -1743,6 +1742,8 @@ int trilsolve_dense(denseMatrix L, denseMatrix x, denseMatrix b) {
 	return 0;
 }
 
+
+/*
 
 // Function for solving a system of linear equations Ux = b, where 
 // U is an invertible upper triangular matrix
@@ -2079,17 +2080,6 @@ int main() {
 	printf("\nResult of matrix power A.^2\n");
 	print_dense(A);
 	
-	/*
-	// Create vectors u and v and test matrix multiplication with them
-	double arr3[3] = {1.0, 2.0, 3.0};
-	double arr4[3] = {2.0, 3.0, 4.0};
-	denseMatrix* u = conv_to_denseMatrix(arr3, 3, 1);
-	denseMatrix* v = conv_to_denseMatrix(arr4, 1, 3);
-	
-	mult_dense(u, v, C);
-	_print_all(C);
-	*/
-	
 	// Compute the power of B and store it in C
 	pow_dense(B, C, 2);
 	// Print the result (should be A = [6 6 6; 12 12 12; 18 18 18]
@@ -2116,9 +2106,25 @@ int main() {
 	// Compute the cholensky decomposition of D and store in F
 	denseMatrix* F = alloc_denseMatrix(3, 3);
 	chol_dense(D, F);
-	// Print the results (should be F = [3 0 0; 1.333 1.8 0; 2.333 0.5 1.5])
+	// Print the results (should be F = [3 0 0; 1.333 1.795 0; 2.333 0.495 1.819])
 	printf("\nThe lower triangular from Cholensky decomp D = LL^(T)\n");
 	print_dense(F);
+	
+	// Allocate memory for PLU decomp
+	denseMatrix* P = alloc_denseMatrix(3, 3);
+	denseMatrix* L = alloc_denseMatrix(3, 3);
+	denseMatrix* U = alloc_denseMatrix(3, 3);
+	
+	// Compute the PLU decomposition for D
+	PLU_dense(D, P, L, U);
+	// Print the results
+	printf("\nThe permutation matrix from PLU of D\n");
+	print_dense(P);  // Should be P = [1 0 0; 0 1 0; 0 0 1]
+	printf("\nThe lower triag from PLU of D\n");
+	print_dense(L);  // Should be L = [1 0 0; 0.444 1 0; 0.788 0.28 1]
+	printf("\nThe upper triag from PLU of D\n");
+	print_dense(U);  // Should be P = [9 4 7; 0 3.222 0.888; 0 0 3.3]
+	
 	
 	// Free the allocated matrices
 	free_denseMatrix(A);
