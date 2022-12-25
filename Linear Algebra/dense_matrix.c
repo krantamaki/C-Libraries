@@ -13,15 +13,28 @@
 // Optimized to allow multithreading, vectorization (256 bit SIMD) and ILP, 
 // but lacks prefetching, improved cache management and proper register reuse
 
+// ERROR CODES:
+// Most of the functions return an integer value which signifies either failure
+// or success of the function and a reason for the possible failure. 
+// - 0: Success
+// - 1: Failure due to improper initialization of a matrix
+// - 2: Failure due to mismatching matrix dimensions
+// - 3: Failure due to improper indexing
+// - 4: Failure due to matrix not being symmetric
+// - 5: Failure due to matrix not being a column vector
+// - 6: Failure due to matrix not being invertible (generic)
+// - 7: Failure due to matrix not being invertible (singular)
+// - 8: Failure due to matrix not being invertible (not s.p.d)
+
 
 // GENERAL FUNCTIONS
 
 // Function for printing a matrix. The elements will always be printed
-// with precision of 3 decimal points
+// with precision of 3 decimal points. The 
 int print_dense(denseMatrix* A) {
 	// Check that matrices are properly allocated
 	if (A->proper_init) {
-		printf("\nERROR: Printing failed as the matrix isn't properly allocated\n");
+		printf("\nERROR CODE 1: Printing failed as the matrix isn't properly allocated\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 		return 1;
 	}
@@ -76,7 +89,7 @@ void _print_all(denseMatrix* A) {
 
 
 // Function for allocating memory for wanted sized denseMatrix
-denseMatrix* alloc_denseMatrix(int n, int m) {
+denseMatrix* alloc_denseMatrix(const int n, const int m) {
 	// Check that given dimensions are positive
 	if (!(n > 0 && m > 0)) {
 		printf("\nERROR: Matrix dimesions must be positive\n");
@@ -138,7 +151,7 @@ denseMatrix* alloc_denseMatrix(int n, int m) {
 
 
 // Function for generating a wanted sized identity matrix
-denseMatrix* eye_dense(int n, int m) {
+denseMatrix* eye_dense(const int n, const int m) {
 	// Check that given dimensions are positive
 	if (!(n > 0 && m > 0)) {
 		printf("\nERROR: Matrix dimesions must be positive\n");
@@ -186,7 +199,7 @@ denseMatrix* eye_dense(int n, int m) {
 // Function for converting a double array to denseMatrix
 // Takes the first n * m elements from double array so it is assumed
 // that len(arr) >= n * m
-denseMatrix* conv_to_denseMatrix(double* arr, int n, int m) {
+denseMatrix* conv_to_denseMatrix(double* arr, const int n, const int m) {
 	// Check that given dimensions are positive
 	if (!(n > 0 && m > 0)) {
 		printf("\nERROR: Matrix dimesions must be positive\n");
@@ -239,17 +252,23 @@ void free_denseMatrix(denseMatrix* A) {
 
 
 // Function for getting an individual value from a denseMatrix
-int _apply_dense(denseMatrix* A, double* ret, int i, int j) {
+int _apply_dense(denseMatrix* A, double* ret, const int i, const int j) {
 	// Check that the indexes are within proper range
 	if (!(i >= 0 && i < A->n && j >= 0 && j < A->m)) {
-		printf("\nERROR: Given indeces exceed the dimensions of the matrix\n");
+		printf("\nERROR CODE 3: Given indeces exceed the dimensions of the matrix\n");
+		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+		return 3;
+	}
+	// Check that A is properly initialized
+	if (A->proper_init) {
+		printf("\nERROR CODE 1: Couldn't access value as the matrix isn't properly allocated\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 		return 1;
 	}
 	
 	// Find the proper vector and element in said vector for column j
-	int vect = j / DOUBLE_ELEMS;  // Integer division defaults to floor
-	int elem = j % DOUBLE_ELEMS;
+	const int vect = j / DOUBLE_ELEMS;  // Integer division defaults to floor
+	const int elem = j % DOUBLE_ELEMS;
 	*ret = A->data[A->vects_per_row * i + vect][elem];
 	
 	return 0;
@@ -257,24 +276,23 @@ int _apply_dense(denseMatrix* A, double* ret, int i, int j) {
 
 
 // Function for placing an individual value into a wanted place in a denseMatrix
-// Returns 0 if operation is successful, 1 otherwise
-int _place_dense(denseMatrix* A, double val, int i, int j) {
+int _place_dense(denseMatrix* A, const double val, const int i, const int j) {
 	// Check that the wanted index is viable for the matrix
 	if (!(i < A->n && j < A->m)) {
-		printf("\nERROR: Given indeces exceed the dimensions of the matrix\n");
+		printf("\nERROR CODE 3: Given indeces exceed the dimensions of the matrix\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
-		return 1;
+		return 3;
 	}
 	// Check that the matrix is properly allocated
 	if (A->proper_init) {
-		printf("\nERROR: Couldn't place the value as the matrix isn't properly allocated\n");
+		printf("\nERROR CODE 1: Couldn't place the value as the matrix isn't properly allocated\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 		return 1;
 	}
 	
 	// Find the proper vector and element in said vector for column j
-	int vect = j / DOUBLE_ELEMS;  // Integer division defaults to floor
-	int elem = j % DOUBLE_ELEMS;
+	const int vect = j / DOUBLE_ELEMS;  // Integer division defaults to floor
+	const int elem = j % DOUBLE_ELEMS;
 	A->data[A->vects_per_row * i + vect][elem] = val;
 	
 	return 0;
@@ -282,7 +300,7 @@ int _place_dense(denseMatrix* A, double val, int i, int j) {
 
 
 // Function for getting an subarray of an existing denseMatrix
-denseMatrix* _subarray_dense(denseMatrix* A, int n_start, int n_end, int m_start, int m_end) {
+denseMatrix* _subarray_dense(denseMatrix* A, const int n_start, const int n_end, const int m_start, const int m_end) {
 	// Check that the dimensions are proper
 	if (!(n_start < n_end && n_end <= A->n && m_start < m_end && m_end <= A->m)) {
 		printf("\nERROR: The start index of a slice must be smaller than end index and end index must be equal or smaller than matrix dimension\n");
@@ -351,24 +369,24 @@ denseMatrix* _subarray_dense(denseMatrix* A, int n_start, int n_end, int m_start
 
 
 // (Naive) Function for placing an denseMatrix B into a wanted position in another denseMatrix A
-int _place_subarray_dense(denseMatrix* A, denseMatrix* B, int n_start, int n_end, int m_start, int m_end) {
+int _place_subarray_dense(denseMatrix* A, denseMatrix* B, const int n_start, const int n_end, const int m_start, const int m_end) {
 	// Check that the matrix is properly allocated
 	if (A->proper_init || B->proper_init) {
-		printf("\nERROR: Couldn't place the subarray as some matrix isn't properly allocated\n");
+		printf("\nERROR CODE 1: Couldn't place the subarray as some matrix isn't properly allocated\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 		return 1;
 	}
 	// Check that the dimensions are proper for A
 	if (!(n_start < n_end && n_end <= A->n && m_start < m_end && m_end <= A->m)) {
-		printf("\nERROR: The start index of a slice must be smaller than end index and end index must be equal or smaller than matrix dimension");
+		printf("\nERROR CODE 3: The start index of a slice must be smaller than end index and end index must be equal or smaller than matrix dimension");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
-		return 1;
+		return 3;
 	}
 	// Check that the dimensinos are proper for B
 	if (!(n_end - n_start == B->n && m_end - m_start == B->m)) {
-		printf("\nERROR: Size of the slice must correspond with the dimensions of the placed subarray");
+		printf("\nERROR CODE 3: Size of the slice must correspond with the dimensions of the placed subarray\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
-		return 1;
+		return 3;
 	}
 	
 	// Go over the row values
@@ -384,16 +402,16 @@ int _place_subarray_dense(denseMatrix* A, denseMatrix* B, int n_start, int n_end
 			int p_success = _place_dense(A, B_ij, i, j);
 			// Check that operations were successful
 			if (a_success || p_success) {
-				error_flag = 1;
+				error_flag = a_success;
 			}
 		}
 	}
 	
 	// Move error handling out of the OpenMP structured block
 	if (error_flag) {
-		printf("\nERROR: Couldn't place a value from one matrix to another\n");
+		printf("\nERROR CODE %d: Couldn't place a value from one matrix to another\n", error_flag);
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
-		return 1;
+		return error_flag;
 	}
 	
 	return 0;
@@ -402,11 +420,10 @@ int _place_subarray_dense(denseMatrix* A, denseMatrix* B, int n_start, int n_end
 
 // Function for initializing an allocated denseMatrix as an identity matrix
 // NOTE: Only adds the ones on the diagonal.
-// Returns 0 if operation is successful, 1 otherwise
 int init_eye_dense(denseMatrix* ret) {
 	// Check that matrices are properly allocated
 	if (ret->proper_init) {
-		printf("\nERROR: Initialization failed as the matrix isn't properly allocated\n");
+		printf("\nERROR CODE 1: Initialization failed as the matrix isn't properly allocated\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 		return 1;
 	}
@@ -416,16 +433,17 @@ int init_eye_dense(denseMatrix* ret) {
 	int error_flag = 0;
 	#pragma omp parallel for schedule(dynamic, 1)
 	for (int i = 0; i < lower_dim; i++) {
-		if (_place_dense(ret, (double)1.0, i, i)) {
-			error_flag = 1;
+		int p = _place_dense(ret, (double)1.0, i, i);
+		if (p) {
+			error_flag = p;
 		}
 	}
 	
 	// Move error handling out of the OpenMP structured block
 	if (error_flag) {
-		printf("\nERROR: Indentity matrix cannot be created as there was a failure in placing a one on the diagonal\n");
+		printf("\nERROR CODE %d: Indentity matrix cannot be created as there was a failure in placing a one on the diagonal\n", error_flag);
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
-		return 1;
+		return error_flag;
 	}
 	
 	return 0;
@@ -438,13 +456,13 @@ int init_eye_dense(denseMatrix* ret) {
 int copy_dense(denseMatrix* dst, denseMatrix* src) {
 	// Check that the matrix dimensions match
 	if (!(dst->n == src->n && dst->m == src->m)) {
-		printf("\nERROR: Copying failed as matrix dimensions don't match\n");
+		printf("\nERROR CODE 2: Copying failed as matrix dimensions don't match\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
-		return 1;
+		return 2;
 	}
 	// Check that matrices are properly allocated
 	if (dst->proper_init || src->proper_init) {
-		printf("\nERROR: Copying failed as some matrix isn't properly allocated\n");
+		printf("\nERROR CODE 1: Copying failed as some matrix isn't properly allocated\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 		return 1;
 	}
@@ -471,13 +489,13 @@ int copy_dense(denseMatrix* dst, denseMatrix* src) {
 int sum_dense(denseMatrix* A, denseMatrix* B, denseMatrix* ret) {
 	// Check that the matrix dimensions match
 	if (!(A->n == B->n && A->n == ret->n && A->m == B->m && A->m == ret->m)) {
-		printf("\nERROR: Summation failed as matrix dimensions don't match\n");
+		printf("\nERROR CODE 2: Summation failed as matrix dimensions don't match\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
-		return 1;
+		return 2;
 	}
 	// Check that matrices are properly allocated
 	if (A->proper_init || B->proper_init || ret->proper_init) {
-		printf("\nERROR: Summation failed as some matrix isn't properly allocated\n");
+		printf("\nERROR CODE 1: Summation failed as some matrix isn't properly allocated\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 		return 1;
 	}
@@ -501,13 +519,13 @@ int sum_dense(denseMatrix* A, denseMatrix* B, denseMatrix* ret) {
 int diff_dense(denseMatrix* A, denseMatrix* B, denseMatrix* ret) {
 	// Check that the matrix dimensions match
 	if (!(A->n == B->n && A->n == ret->n && A->m == B->m && A->m == ret->m)) {
-		printf("\nERROR: Difference failed as matrix dimensions don't match\n");
+		printf("\nERROR CODE 2: Difference failed as matrix dimensions don't match\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
-		return 1;
+		return 2;
 	}
 	// Check that matrices are properly allocated
 	if (A->proper_init || B->proper_init || ret->proper_init) {
-		printf("\nERROR: Difference failed as some matrix isn't properly allocated\n");
+		printf("\nERROR CODE 1: Difference failed as some matrix isn't properly allocated\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 		return 1;
 	}
@@ -528,16 +546,16 @@ int diff_dense(denseMatrix* A, denseMatrix* B, denseMatrix* ret) {
 
 // Function for multiplying a denseMatrix with a scalar
 // Returns 0 if operation is successful 1 otherwise
-int smult_dense(denseMatrix* A, denseMatrix* ret, double c) {
+int smult_dense(denseMatrix* A, denseMatrix* ret, const double c) {
 	// Check that the matrix dimensions match
 	if (!(A->n == ret->n && A->m == ret->m)) {
-		printf("\nERROR: Multiplication failed as matrix dimensions don't match\n");
+		printf("\nERROR CODE 2: Multiplication failed as matrix dimensions don't match\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
-		return 1;
+		return 2;
 	}
 	// Check that the matrices is properly allocated
 	if (A->proper_init || ret->proper_init) {
-		printf("\nERROR: Multiplication failed as the matrix isn't properly allocated\n");
+		printf("\nERROR CODE 1: Multiplication failed as the matrix isn't properly allocated\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 		return 1;
 	}
@@ -562,20 +580,21 @@ int smult_dense(denseMatrix* A, denseMatrix* ret, double c) {
 int negate_dense(denseMatrix* A, denseMatrix* ret) {
 	// Check that the matrix dimensions match
 	if (!(A->n == ret->n && A->m == ret->m)) {
-		printf("\nERROR: Negation failed as matrix dimensions don't match\n");
+		printf("\nERROR CODE 2: Negation failed as matrix dimensions don't match\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
-		return 1;
+		return 2;
 	}
 	// Check that matrices are properly allocated
 	if (A->proper_init || ret->proper_init) {
-		printf("\nERROR: Negation failed as some matrix isn't properly allocated\n");
+		printf("\nERROR CODE 1: Negation failed as some matrix isn't properly allocated\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 		return 1;
 	}
-	if (smult_dense(A, ret, (double)-1.0)) {
-		printf("\nERROR: Negation failed as an error occured with scalar multiplication\n");
+	int s = smult_dense(A, ret, (double)-1.0);
+	if (s) {
+		printf("\nERROR CODE %d: Negation failed as an error occured with scalar multiplication\n", s);
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
-		return 1;
+		return s;
 	}	
 	
 	return 0;
@@ -587,13 +606,13 @@ int negate_dense(denseMatrix* A, denseMatrix* ret) {
 int transpose_dense(denseMatrix* A, denseMatrix* ret) {
 	// Check that the matrix dimensions match
 	if (!(A->n == ret->m && A->m == ret->n)) {
-		printf("\nERROR: Transpose failed as matrix dimensions don't match\n");
+		printf("\nERROR CODE 2: Transpose failed as matrix dimensions don't match\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
-		return 1;
+		return 2;
 	}
 	// Check that matrices are properly allocated
 	if (A->proper_init || ret->proper_init) {
-		printf("\nERROR: Transpose failed as some matrix isn't properly allocated\n");
+		printf("\nERROR CODE 1: Transpose failed as some matrix isn't properly allocated\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 		return 1;
 	}
@@ -609,27 +628,21 @@ int transpose_dense(denseMatrix* A, denseMatrix* ret) {
 			int a_success = _apply_dense(A, &val, i, j);
 			int p_success = _place_dense(ret, val, j, i);
 			if (a_success || p_success) {
-				error_flag = 1;
+				error_flag = a_success;
 			}
 		}
 	}
 	
 	// Move error handling out of the OpenMP structured block
 	if (error_flag) {
-		printf("\nERROR: Transpose failed as placing values from one matrix to another failed\n");
+		printf("\nERROR CODE %d: Transpose failed as placing values from one matrix to another failed\n", error_flag);
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
-		return 1;
+		return error_flag;
 	}
 	
 	return 0;
 }
 
-
-
-// TESTED UP TO THIS POINT
-
-
-// TODO: Free memory in case of error
 
 // Function for computing the Hadamard product (element-wise product A.*B)
 // of two denseMatrices
@@ -637,13 +650,13 @@ int transpose_dense(denseMatrix* A, denseMatrix* ret) {
 int hprod_dense(denseMatrix* A, denseMatrix* B, denseMatrix* ret) {
 	// Check that the matrix dimensions match
 	if (!(A->n == B->n && A->n == ret->n && A->m == B->m && A->m == ret->m)) {
-		printf("\nERROR: Element-wise product failed as matrix dimensions don't match\n");
+		printf("\nERROR CODE 2: Element-wise product failed as matrix dimensions don't match\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
-		return 1;
+		return 2;
 	}
 	// Check that matrices are properly allocated
 	if (A->proper_init || B->proper_init || ret->proper_init) {
-		printf("\nERROR: Element-wise product failed as some matrix isn't properly allocated\n");
+		printf("\nERROR CODE 1: Element-wise product failed as some matrix isn't properly allocated\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 		return 1;
 	}
@@ -669,9 +682,9 @@ int hprod_dense(denseMatrix* A, denseMatrix* B, denseMatrix* ret) {
 int hdiv_dense(denseMatrix* A, denseMatrix* B, denseMatrix* ret) {
 	// Check that the matrix dimensions match
 	if (!(A->n == B->n && A->n == ret->n && A->m == B->m && A->m == ret->m)) {
-		printf("\nERROR: Element-wise division failed as matrix dimensions don't match\n");
+		printf("\nERROR CODE 2: Element-wise division failed as matrix dimensions don't match\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
-		return 1;
+		return 2;
 	}
 	// Check that matrices are properly allocated
 	if (A->proper_init || B->proper_init || ret->proper_init) {
@@ -706,13 +719,13 @@ int hdiv_dense(denseMatrix* A, denseMatrix* B, denseMatrix* ret) {
 int hpow_dense(denseMatrix* A, denseMatrix* ret, double k) {
 	// Check that the matrix dimensions match
 	if (!(A->n == ret->n && A->m == ret->m)) {
-		printf("\nERROR: Element-wise power failed as matrix dimensions don't match\n");
+		printf("\nERROR CODE 2: Element-wise power failed as matrix dimensions don't match\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
-		return 1;
+		return 2;
 	}
 	// Check that matrices are properly allocated
 	if (A->proper_init || ret->proper_init) {
-		printf("\nERROR: Element-wise power failed as some matrix isn't properly allocated\n");
+		printf("\nERROR CODE 1: Element-wise power failed as some matrix isn't properly allocated\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 		return 1;
 	}
@@ -739,19 +752,19 @@ int hpow_dense(denseMatrix* A, denseMatrix* ret, double k) {
 int dot_dense(denseMatrix* v, denseMatrix* u, double* ret) {
 	// Check that the matrix dimensions match
 	if (!(u->m == v->m && u->n == v->n)) {
-		printf("\nERROR: Dot product failed as matrix dimensions don't match\n");
+		printf("\nERROR CODE 2: Dot product failed as matrix dimensions don't match\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
-		return 1;
+		return 2;
 	}
 	// Check that the 'matrices' are column vectors
 	if (!(v->m == 1)) {
-		printf("\nERROR: Dot product failed as denseMatrices are not column vectors\n");
+		printf("\nERROR CODE 5: Dot product failed as denseMatrices are not column vectors\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
-		return 1;
+		return 5;
 	}
 	// Check that matrices are properly allocated
 	if (v->proper_init || u->proper_init) {
-		printf("\nERROR: Dot product failed as some matrix isn't properly allocated\n");
+		printf("\nERROR CODE 1: Dot product failed as some matrix isn't properly allocated\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 		return 1;
 	}
@@ -774,13 +787,13 @@ int dot_dense(denseMatrix* v, denseMatrix* u, double* ret) {
 int mult_dense(denseMatrix* A, denseMatrix* B, denseMatrix* ret) {
 	// Check that the matrix dimensions match
 	if (!(A->m == B->n && A->n == ret->n && B->m == ret->m)) {
-		printf("\nERROR: Multiplication failed as matrix dimensions don't match\n");
+		printf("\nERROR CODE 2: Multiplication failed as matrix dimensions don't match\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 		return 1;
 	}
 	// Check that matrices are properly allocated
 	if (A->proper_init || B->proper_init || ret->proper_init) {
-		printf("\nERROR: Multiplication failed as some matrix isn't properly allocated\n");
+		printf("\nERROR CODE 1: Multiplication failed as some matrix isn't properly allocated\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 		return 1;
 	}
@@ -790,7 +803,7 @@ int mult_dense(denseMatrix* A, denseMatrix* B, denseMatrix* ret) {
 	denseMatrix* B_T = alloc_denseMatrix(B->m, B->n);
 	// Check that allocation was successful
 	if (B_T->proper_init) {
-		printf("\nERROR: Memory allocation for the transpose of B failed\n");
+		printf("\nERROR CODE 1: Memory allocation for the transpose of B failed\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 		
 		// In case of error free the allocated memory
@@ -799,14 +812,15 @@ int mult_dense(denseMatrix* A, denseMatrix* B, denseMatrix* ret) {
 		return 1;
 	}
 	// and transpose B
-	if (transpose_dense(B, B_T)) {
-		printf("\nERROR: Failed to transpose B\n");
+	int T = transpose_dense(B, B_T);
+	if (T) {
+		printf("\nERROR CODE %d: Failed to transpose B\n", T);
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 		
 		// In case of error free the allocated memory
 		free_denseMatrix(B_T);
 		
-		return 1;
+		return T;
 	}
 	
 	// Allocate memory for a temporary ret matrix. This allows
@@ -814,7 +828,7 @@ int mult_dense(denseMatrix* A, denseMatrix* B, denseMatrix* ret) {
 	denseMatrix* tmp = alloc_denseMatrix(ret->n, ret->m);
 	// Check that allocation was successful
 	if (tmp->proper_init) {
-		printf("\nERROR: Memory allocation for a temporary ret matrix failed\n");
+		printf("\nERROR CODE 1: Memory allocation for a temporary ret matrix failed\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 		
 		// In case of error free the allocated memory
@@ -844,34 +858,36 @@ int mult_dense(denseMatrix* A, denseMatrix* B, denseMatrix* ret) {
 			}
 			
 			// Place the value at the correct location
-			if (_place_dense(tmp, val, i, j)) {
-				error_flag = 1;
+			int p = _place_dense(tmp, val, i, j);
+			if (p) {
+				error_flag = p;
 			}
 		}
 	}
 	
 	// Move error handling out of the OpenMP structured block
 	if (error_flag) {
-		printf("\nERROR: Failed to place the computed value in the correct location\n");
+		printf("\nERROR CODE %d: Failed to place the computed value in the correct location\n", error_flag);
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 		
 		// In case of error free the allocated memory
 		free_denseMatrix(B_T);
 		free_denseMatrix(tmp);
 		
-		return 1;
+		return error_flag;
 	}	
 	
 	// Copy the contents of tmp to ret
-	if (copy_dense(ret, tmp)) {
-		printf("\nERROR: Failed to copy the values from temporary matrix to ret\n");
+	int c = copy_dense(ret, tmp);
+	if (c) {
+		printf("\nERROR CODE %d: Failed to copy the values from temporary matrix to ret\n", c);
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 		
 		// In case of error free the allocated memory
 		free_denseMatrix(B_T);
 		free_denseMatrix(tmp);
 		
-		return 1;
+		return c;
 	}
 	
 	// Free allocated memory
@@ -883,22 +899,22 @@ int mult_dense(denseMatrix* A, denseMatrix* B, denseMatrix* ret) {
 
 
 // (Naive) Function for matrix powers
-int pow_dense(denseMatrix* A, denseMatrix* ret, int k) {
+int pow_dense(denseMatrix* A, denseMatrix* ret, const int k) {
 	// Check that the matrix dimensions match
 	if (!(A->n == ret->n && A->m == ret->m)) {
-		printf("\nERROR: Matrix power failed as matrix dimensions don't match\n");
+		printf("\nERROR CODE 2: Matrix power failed as matrix dimensions don't match\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
-		return 1;
+		return 2;
 	}
 	// Check that the matrix is symmetric
 	if (!(A->n == A->m)) {
-		printf("\nERROR: Matrix power failed as the matrix isn't symmetric\n");
+		printf("\nERROR CODE 4: Matrix power failed as the matrix isn't symmetric\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
-		return 1;
+		return 4;
 	}
 	// Check that matrices are properly allocated
 	if (A->proper_init || ret->proper_init) {
-		printf("\nERROR: Matrix power failed as some matrix isn't properly allocated\n");
+		printf("\nERROR CODE 1: Matrix power failed as some matrix isn't properly allocated\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 		return 1;
 	}
@@ -907,7 +923,7 @@ int pow_dense(denseMatrix* A, denseMatrix* ret, int k) {
 	denseMatrix* I = eye_dense(A->n, A->n);
 	// Check that the operation was successful
 	if (I->proper_init) {
-		printf("\nERROR: Matrix power failed as generating an identity matrix failed\n");
+		printf("\nERROR CODE 1: Matrix power failed as generating an identity matrix failed\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 		
 		// In case of error free the allocated memory
@@ -921,7 +937,7 @@ int pow_dense(denseMatrix* A, denseMatrix* ret, int k) {
 	denseMatrix* tmp = alloc_denseMatrix(ret->n, ret->m);
 	// Check that allocation was successful
 	if (tmp->proper_init) {
-		printf("\nERROR: Memory allocation for a temporary ret matrix failed\n");
+		printf("\nERROR CODE 1: Memory allocation for a temporary ret matrix failed\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 		
 		// In case of error free the allocated memory
@@ -933,27 +949,29 @@ int pow_dense(denseMatrix* A, denseMatrix* ret, int k) {
 	 
 	// Multiply A with itself k times in a loop
 	for (int i = 0; i < k; i++) {
-		if (mult_dense(A, I, tmp)) {
-			printf("\nERROR: Matrix power failed as matrix multiplication failed\n");
+		int m = mult_dense(A, I, tmp);
+		if (m) {
+			printf("\nERROR CODE %d: Matrix power failed as matrix multiplication failed\n", m);
 			printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 			
 			// In case of error free the allocated memory
 			free_denseMatrix(I);
 			free_denseMatrix(tmp);
 		
-			return 1;
+			return m;
 		}
 		
+		int c = copy_dense(I, tmp);
 		// Copy ret value back to I
-		if (copy_dense(I, tmp)) {
-			printf("\nERROR: Matrix power failed as copying the contents from ret failed\n");
+		if (c) {
+			printf("\nERROR CODE %d: Matrix power failed as copying the contents from ret failed\n", c);
 			printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 			
 			// In case of error free the allocated memory
 			free_denseMatrix(I);
 			free_denseMatrix(tmp);
 			
-			return 1;
+			return c;
 		}
 	}
 	
@@ -993,9 +1011,9 @@ int pow_dense(denseMatrix* A, denseMatrix* ret, int k) {
 int inv_dense(denseMatrix* A, denseMatrix* ret) {
 	// Check that the matrix dimensions match
 	if (!(A->n == ret->n && A->m == ret->m)) {
-		printf("\nERROR: Inversion failed as matrix dimensions don't match\n");
+		printf("\nERROR CODE 2: Inversion failed as matrix dimensions don't match\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
-		return 1;
+		return 2;
 	}
 	// Check that the matrix is symmetric
 	if (!(A->n == A->m)) {
@@ -1662,7 +1680,7 @@ int trilsolve_dense(denseMatrix* L, denseMatrix* x, denseMatrix* b) {
 	// Copy the contents of L into _L
 	int c1_success = copy_dense(_L, L);
 	int c2_success = copy_dense(_b, b);
-	if (c1_success && c2_success) {
+	if (c1_success || c2_success) {
 		printf("\nERROR: Trilsolve failed as copying of the contents of L failed\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 				
@@ -1682,7 +1700,6 @@ int trilsolve_dense(denseMatrix* L, denseMatrix* x, denseMatrix* b) {
 		double l11;
 		int a1_success = _apply_dense(_L, &l11, i, i);
 		denseMatrix* l21 = _subarray_dense(_L, i + 1, _L->n, i, i + 1);
-		print_dense(l21);
 		// Check that l11 is not 0
 		if (!(l11 != 0)) {
 			printf("\nERROR: Trilsolve failed as L is not invertible\n");
@@ -1721,7 +1738,6 @@ int trilsolve_dense(denseMatrix* L, denseMatrix* x, denseMatrix* b) {
 		
 		// Update b
 		int s_success = smult_dense(l21, l21, x_i);
-		print_dense(l21);
 		int d_success = diff_dense(b2, l21, b2);
 		int ps_success = _place_subarray_dense(_b, b2, i + 1, _b->n, 0, 1);
 		
@@ -1784,43 +1800,41 @@ int trilsolve_dense(denseMatrix* L, denseMatrix* x, denseMatrix* b) {
 // TESTED UP TO THIS POINT
 
 
-/*
-
 // Function for solving a system of linear equations Ux = b, where 
 // U is an invertible upper triangular matrix
 // Returns 0 if operation is successful 1 otherwise
-int triusolve_dense(denseMatrix U, denseMatrix x, denseMatrix b) {
+int triusolve_dense(denseMatrix* U, denseMatrix* x, denseMatrix* b) {
 	// Check that the matrix dimensions match
-	if (!(U.m == x.n && U.n == b.n && x.m == b.m)) {
+	if (!(U->m == x->n && U->n == b->n && x->m == b->m)) {
 		printf("\nERROR: Triusolve failed as matrix dimensions don't match\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 		return 1;
 	}
 	// Check that c and b are vectors
-	if (!(x_m == 1)) {
+	if (!(x->m == 1)) {
 		printf("\nERROR: Passed arguments x and b have to be column vectors\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 		return 1;
 	}
 	// Check that the matrix is symmetric
-	if (!(U.n == U.m)) {
+	if (!(U->n == U->m)) {
 		printf("\nERROR: Triusolve failed as the matrix isn't symmetric\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 		return 1;
 	}
 	// Check that matrices are properly allocated
-	if (U.proper_init || x.proper_init || b.proper_init) {
+	if (U->proper_init || x->proper_init || b->proper_init) {
 		printf("\nERROR: Triusolve failed as some matrix isn't properly allocated\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 		return 1;
 	}
 	
 	// As we don't want to destroy L or b create copies of them
-	denseMatrix _U = alloc_denseMatrix(U.n, U.n);
-	denseMatrix _b = alloc_denseMatrix(b.n, 1);
+	denseMatrix* _U = alloc_denseMatrix(U->n, U->n);
+	denseMatrix* _b = alloc_denseMatrix(b->n, 1);
 	
 	// Check that the allocation was successful
-	if (_U.proper_init || _b.proper_init) {
+	if (_U->proper_init || _b->proper_init) {
 		printf("\nERROR: Triusolve failed as allocating memory for a copy of L failed\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 			
@@ -1831,8 +1845,10 @@ int triusolve_dense(denseMatrix U, denseMatrix x, denseMatrix b) {
 		return 1;
 	}
 	
-	// Copy the contents of L into _L
-	if (copy_dense(_U, U) && copy_dense(_b, b)) {
+	// Copy the contents of U into _U and b into _b
+	int c1_success = copy_dense(_U, U);
+	int c2_success = copy_dense(_b, b);
+	if (c1_success || c2_success) {
 		printf("\nERROR: Trilsolve failed as copying of the contents of L failed\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 				
@@ -1844,55 +1860,64 @@ int triusolve_dense(denseMatrix U, denseMatrix x, denseMatrix b) {
 	}
 	
 	// The main loop body
-	for (int i = _U.n; i >= 0; i--) {
+	for (int i = _U->n - 1; i > 0; i--) {
 		// Split the linear system into blocks and allocate memory
 		// for needed subarrays
 		
 		// For U
 		double u22;
 		int a1_success = _apply_dense(_U, &u22, i, i);
-		denseMatrix u12 = _subarray_dense(_U, 0, i - 1, i, i + 1);
-		denseMatrix U11 = _subarray_dense(_L, 0, i - 1, 0, i - 1);
+		// Check that u22 is not 0
+		if (!(u22 != 0)) {
+			printf("\nERROR: Triusolve failed as U is not invertible\n");
+			printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+					
+			// Even in case of error free the allocated memory
+			free_denseMatrix(_U);
+			free_denseMatrix(_b);
+			
+			return 1;
+		}	
+
+		denseMatrix* u12 = _subarray_dense(_U, 0, i, i, i + 1);
 		
 		// For b
 		double b2;
-		int a2_success = _apply_dense(_b, &b2, i, 0)
-		denseMatrix b1 = _subarray_dense(_b, 0, i - 1, 0, 1);
+		int a2_success = _apply_dense(_b, &b2, i, 0);
+		denseMatrix* b1 = _subarray_dense(_b, 0, i, 0, 1);
 		
 		// Check that the operations were successful
-		if (u12.proper_init || U11.proper_init || b1.proper_init || a1_success || a2_success) {
-			printf("\nERROR: Trilsolve failed as there was an error in subarray allocation\n");
+		if (u12->proper_init || b1->proper_init || a1_success || a2_success) {
+			printf("\nERROR: Triusolve failed as there was an error in subarray allocation\n");
 			printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 					
 			// Even in case of error free the allocated memory
 			free_denseMatrix(_U);
 			free_denseMatrix(_b);
 			free_denseMatrix(u12);
-			free_denseMatrix(U11);
 			free_denseMatrix(b1);
 			
 			return 1;
 		}
 		
 		// Update x
-		double x_i = b2 / u22
+		double x_i = b2 / u22;
 		int p_success = _place_dense(x, x_i, i, 0);
 		
 		// Update b
 		int s_success = smult_dense(u12, u12, x_i);
-		int d_success = diff_dense(b1, u12, b2);
-		int ps_success = _place_subarray_dense(_b, b1, 0, i - 1, 0, 1);
+		int d_success = diff_dense(b1, u12, b1);
+		int ps_success = _place_subarray_dense(_b, b1, 0, i, 0, 1);
 		
 		// Check that the operations were successful
 		if (p_success || s_success || d_success || ps_success) {
-			printf("\nERROR: Trilsolve failed as there was an error with some math operation\n");
+			printf("\nERROR: Triusolve failed as there was an error with some math operation\n");
 			printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 					
 			// Even in case of error free the allocated memory
 			free_denseMatrix(_U);
 			free_denseMatrix(_b);
 			free_denseMatrix(u12);
-			free_denseMatrix(U11);
 			free_denseMatrix(b1);
 			
 			return 1;
@@ -1900,10 +1925,38 @@ int triusolve_dense(denseMatrix U, denseMatrix x, denseMatrix b) {
 		
 		// Free temporary arrays
 		free_denseMatrix(u12);
-		free_denseMatrix(U11);
 		free_denseMatrix(b1);
 	}
-	
+
+	// Handle the final element of x
+	double u22;
+	int a1 = _apply_dense(_U, &u22, 0, 0);
+	// Check that u22 is not 0
+	if (!(u22 != 0)) {
+		printf("\nERROR: Triusolve failed as U is not invertible\n");
+		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+				
+		// Even in case of error free the allocated memory
+		free_denseMatrix(_U);
+		free_denseMatrix(_b);
+			
+		return 1;
+	}
+	double b2;
+	int a2 = _apply_dense(_b, &b2, 0, 0);
+	int p = _place_dense(x, b2 / u22, 0, 0);
+	// Check that the operations were successful
+	if (a1 || a2 || p) {
+		printf("\nERROR: Triusolve failed as there was an error in subarray allocation\n");
+		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+					
+		// Even in case of error free the allocated memory
+		free_denseMatrix(_U);
+		free_denseMatrix(_b);
+			
+		return 1;
+	}
+
 	// Free allocated memory
 	free_denseMatrix(_U);
 	free_denseMatrix(_b);
@@ -1915,27 +1968,27 @@ int triusolve_dense(denseMatrix U, denseMatrix x, denseMatrix b) {
 // Function for solving a system of linear equations of form Ax = b
 // using PLU decomposition of the matrix A
 // Returns 0 if operation is successful 1 otherwise
-int linsolve_dense(denseMatrix A, denseMatrix x, denseMatrix b) {
+int linsolve_dense(denseMatrix* A, denseMatrix* x, denseMatrix* b) {
 	// Check that the matrix dimensions match
-	if (!(A.m == x.n && A.n == b.n && x.m == b.m)) {
+	if (!(A->m == x->n && A->n == b->n && x->m == b->m)) {
 		printf("\nERROR: Linsolve failed as matrix dimensions don't match\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 		return 1;
 	}
 	// Check that c and b are vectors
-	if (!(x_m == 1)) {
+	if (!(x->m == 1)) {
 		printf("\nERROR: Passed arguments x and b have to be column vectors\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 		return 1;
 	}
 	// Check that the matrix is symmetric
-	if (!(A.n == A.m)) {
+	if (!(A->n == A->m)) {
 		printf("\nERROR: Linsolve failed as the matrix isn't symmetric\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 		return 1;
 	}
 	// Check that matrices are properly allocated
-	if (A.proper_init || x.proper_init || b.proper_init) {
+	if (A->proper_init || x->proper_init || b->proper_init) {
 		printf("\nERROR: Linsolve failed as some matrix isn't properly allocated\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 		return 1;
@@ -1943,14 +1996,14 @@ int linsolve_dense(denseMatrix A, denseMatrix x, denseMatrix b) {
 	
 	// Allocate memory for the P, L and U matrices passed as argument to
 	// the plu function (and temporary array y)
-	denseMatrix P = alloc_denseMatrix(A.n, A.n);
-	denseMatrix P_T = alloc_denseMatrix(A.n, A.n);
-	denseMatrix L = alloc_denseMatrix(A.n, A.n);
-	denseMatrix U = alloc_denseMatrix(A.n, A.n);
-	denseMatrix y = alloc_denseMatrix(A.n, 1);
+	denseMatrix* P = alloc_denseMatrix(A->n, A->n);
+	denseMatrix* P_T = alloc_denseMatrix(A->n, A->n);
+	denseMatrix* L = alloc_denseMatrix(A->n, A->n);
+	denseMatrix* U = alloc_denseMatrix(A->n, A->n);
+	denseMatrix* y = alloc_denseMatrix(A->n, 1);
 	
 	// Check that the allocations were successful
-	if (P.proper_init || L.proper_init || U.proper_init || y.proper_init) {
+	if (P->proper_init || L->proper_init || U->proper_init || y->proper_init) {
 		printf("\nERROR: Linsolve failed as there was an error in temporary array allocation\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 		
@@ -1965,8 +2018,9 @@ int linsolve_dense(denseMatrix A, denseMatrix x, denseMatrix b) {
 	}
 	
 	// As we don't want to destroy b create a copy of it 
-	denseMatrix _b = alloc_denseMatrix(A.n, 1);
-	if (_b.proper_init || copy_dense(_b, b)) {
+	denseMatrix* _b = alloc_denseMatrix(A->n, 1);
+	int c_success = copy_dense(_b, b);
+	if (_b->proper_init || c_success) {
 		printf("\nERROR: Linsolve failed as there was an error in copying the contents of b\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 		
@@ -2004,7 +2058,8 @@ int linsolve_dense(denseMatrix A, denseMatrix x, denseMatrix b) {
 	// Solve for y
 	int T_success = transpose_dense(P, P_T);
 	int m_success = mult_dense(P_T, _b, _b);
-	if (T_success || m_success || trilsolve_dense(L, y, _b)) {
+	int tril = trilsolve_dense(L, y, _b);
+	if (T_success || m_success || tril) {
 		printf("\nERROR: Linsolve failed as an error arose when solving Ly = P^(T)b\n");
 		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
 		
@@ -2063,7 +2118,7 @@ int linsolve_dense(denseMatrix A, denseMatrix x, denseMatrix b) {
 }
 
 
-
+/*
 
 // TODO: FINISH EIGENDECOMPOSITION
 
@@ -2166,15 +2221,40 @@ int main() {
 	printf("\nThe upper triag from PLU of D\n");
 	print_dense(U);  // Should be P = [9 4 7; 0 3.222 0.888; 0 0 3.3]
 	
-	// Solve system of equations Lx = b where b is
+	// Solve system of equations Lx1 = b where b is
 	double arr6[3] = {1.0, 2.0, 3.0};
 	denseMatrix* b = conv_to_denseMatrix(arr6, 3, 1);
-	denseMatrix* x = alloc_denseMatrix(3, 1);
-	trilsolve_dense(L, x, b);
-	// Print the results (should be x = [1.0; 1.556; 1.792])
-	printf("\nSolution to system of equations Lx = b\n");
-	print_dense(x);
-	
+	denseMatrix* x1 = alloc_denseMatrix(3, 1);
+	trilsolve_dense(L, x1, b);
+	// Print the results (should be x1 = [1.0; 1.556; 1.792])
+	printf("\nSolution to system of equations L*x1 = b\n");
+	print_dense(x1);
+
+	// Solve system of equations Ux2 = b
+	denseMatrix* x2 = alloc_denseMatrix(3, 1);
+	triusolve_dense(U, x2, b);	
+	// Print the results (should be x2 = ...)
+	printf("\nSolution to system of equations U*x2 = b\n");
+	print_dense(x2);
+
+	// Test by multiplication
+	mult_dense(U, x2, x2);
+	// Print the results (should be x2 = b)
+	printf("\nResult of multiplication U*x2\n");
+	print_dense(x2);
+
+	// Solve system Dx3 = b
+	denseMatrix* x3 = alloc_denseMatrix(3, 1);
+	linsolve_dense(D, x3, b);
+	// Print the results (should be x2 = ...)
+	printf("\nSolution to system of equations D*x3 = b\n");
+	print_dense(x3);
+
+	// Test by multiplication
+	mult_dense(D, x3, x3);
+	// Print the results (should be x2 = b)
+	printf("\nResult of multiplication D*x3\n");
+	print_dense(x3);
 	
 	// Free the allocated matrices
 	free_denseMatrix(A);
@@ -2187,6 +2267,8 @@ int main() {
 	free_denseMatrix(L);
 	free_denseMatrix(U);
 	free_denseMatrix(b);
-	free_denseMatrix(x);
+	free_denseMatrix(x1);
+	free_denseMatrix(x2);
+	free_denseMatrix(x3);
 }
 

@@ -174,3 +174,17 @@ void rand_float_arr(float* arr, const int n, const float upper) {
 		arr[i] = ((float)rand() / (float)RAND_MAX) * upper;
 	}
 }
+
+// Function for generating a wanted sized array of random 64-bit floats
+// All elements have values in range [0.0, upper]
+// NOTE! The values don't follow uniform distribution due to the 
+// properties of floating point numbers, but for testing purposes
+// this is considered adequate.
+// Assumes that enough memory has already been allocated
+void rand_double_arr(double* arr, const int n, const float upper) {
+	for (int i = 0; i < n; i++) {
+		arr[i] = ((double)rand() / (double)RAND_MAX) * upper;
+	}
+}
+
+
