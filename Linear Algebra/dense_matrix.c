@@ -996,10 +996,17 @@ int pow_dense(denseMatrix* A, denseMatrix* ret, const int k) {
 }  
 
 
+// TODO: FINISH FUNCTION FOR FINDING THE ROW ECHELON FORM OF A MATRIX
+
+// Function for finding the row echelon form of a square matrix
+//int row_ech_dense(denseMatrix* A) {}
+
+
 //TODO: FINISH DETERMINANT COMPUTATION
 
-// Function for computing the determinant of a matrix
-//int det_dense(denseMatrix A, double* ret) {}
+// Function for computing the determinant of a square matrix
+// using Gaussian elimination
+//int det_dense(denseMatrix* A, double* ret) {}
 
 
 
@@ -2158,8 +2165,8 @@ int linsolve_dense(denseMatrix* A, denseMatrix* x, denseMatrix* b) {
 // Cuts the program execution if the system is not solvable with given 
 // solution method. Only frees the passed argument matrices so there shouldn't
 // be any others allocated
-double solve_timer_dense(denseMatrix A, denseMatrix x, denseMatrix b, 
-					   int (*solve)(denseMatrix*, denseMatrix*, denseMatrix*)) {
+double solve_timer_dense(denseMatrix* A, denseMatrix* x, denseMatrix* b, 
+					     int (*solve)(denseMatrix*, denseMatrix*, denseMatrix*)) {
 	clock_t begin = clock();
 	if ((*solve)(A, x, b)) {
 		printf("\nERROR: Couldn't solve the system\n");
@@ -2169,7 +2176,6 @@ double solve_timer_dense(denseMatrix A, denseMatrix x, denseMatrix b,
 		free_denseMatrix(b);
 		
 		exit(0);
-			
 	}
 	clock_t end = clock();
 	
