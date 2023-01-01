@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <float.h>
+#include <time.h>
 #include <math.h>
 #include <omp.h>
 #include "../general.h"
@@ -1796,10 +1797,6 @@ int trilsolve_dense(denseMatrix* L, denseMatrix* x, denseMatrix* b) {
 }
 
 
-
-// TESTED UP TO THIS POINT
-
-
 // Function for solving a system of linear equations Ux = b, where 
 // U is an invertible upper triangular matrix
 // Returns 0 if operation is successful 1 otherwise
@@ -2118,7 +2115,31 @@ int linsolve_dense(denseMatrix* A, denseMatrix* x, denseMatrix* b) {
 }
 
 
-/*
+// TODO: FINISH CONJUGATE GRADIENT METHOD FOR SOLVING Ax = b
+
+// Function for solving an approximate solutions to the linear system Ax = b
+// by minimizing an equivalent quadratic (convex) problem J(u) = 1/2 u^T Au - b^T u
+// using conjugate gradient method with A-orthogonal search directions.
+// Requires that A is symmetrix positive definite
+// Returns 0 if operation is successful 1 otherwise
+//int cgsolve_dense(denseMatrix* A, denseMatrix* x, denseMatrix* b) {}
+
+
+// TODO: FINISH CHOLENSKY DECOMPOSITION BASED METHOD FOR SOLVING Ax = b
+
+// Function for solving a system of equations Ax = b using Cholensky 
+// decomposition of a symmetric positive definite matrix A.
+// Returns 0 if operation is successful 1 otherwise
+//int cholsolve_dense(denseMatrix* A, denseMatrix* x, denseMatrix* b) {}
+
+
+// TODO: FINISH MATRIX INVERSE BASED METHOD FOR SOLVING Ax = b
+
+// Function for solving a system of equations Ax = b by computing x = A^(-1) b
+// Requires that A is invertible. Mainly for benchmarking purposes
+// Returns 0 if operation is successful 1 otherwise
+//int invsolve_dense(denseMatrix* A, denseMatrix* x, denseMatrix* b) {}
+
 
 // TODO: FINISH EIGENDECOMPOSITION
 
@@ -2127,9 +2148,33 @@ int linsolve_dense(denseMatrix* A, denseMatrix* x, denseMatrix* b) {
 // of A on the diagonal) of a given matrix A
 // Computed using the QR-algorithm
 // Returns 0 if operation is successful 1 otherwise
-//int eig_dense(denseMatrix A, denseMatrix S, denseMatrix E, denseMatrix S_inv) {}
+//int eig_dense(denseMatrix* A, denseMatrix* S, denseMatrix* E, denseMatrix* S_inv) {}
 
-*/
+
+
+// TESTING FUNCTIONS
+
+// Function for timing the solution to system of equations Ax = b
+// Cuts the program execution if the system is not solvable with given 
+// solution method. Only frees the passed argument matrices so there shouldn't
+// be any others allocated
+double solve_timer_dense(denseMatrix A, denseMatrix x, denseMatrix b, 
+					   int (*solve)(denseMatrix*, denseMatrix*, denseMatrix*)) {
+	clock_t begin = clock();
+	if ((*solve)(A, x, b)) {
+		printf("\nERROR: Couldn't solve the system\n");
+		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+		free_denseMatrix(A);
+		free_denseMatrix(x);
+		free_denseMatrix(b);
+		
+		exit(0);
+			
+	}
+	clock_t end = clock();
+	
+	return (double)(end - begin) / CLOCKS_PER_SEC;	   
+}
 
 
 // Main function for testing the library
