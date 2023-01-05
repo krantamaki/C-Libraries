@@ -14,6 +14,10 @@
 // Optimized to allow multithreading, vectorization (256 bit SIMD) and ILP, 
 // but lacks prefetching, improved cache management and proper register reuse
 
+// Unless otherwise mentioned the algorithms are based on the material
+// from the course MS-E1651 Numerical Matrix Computation notes by Antti 
+// Hannukainen or from the book Numerical Linear Algebra by Trefethen and Bau
+
 // ERROR CODES:
 // Most of the functions return an integer value which signifies either failure
 // or success of the function and a reason for the possible failure. 
@@ -994,6 +998,13 @@ int pow_dense(denseMatrix* A, denseMatrix* ret, const int k) {
 	
 	return 0;
 }  
+
+
+// TODO: FINISH FUNCTION FOR THE TRACE
+
+// Function for finding the trace of a square matrix (i.e. the sum
+// of the diagonal elements)
+//int trace_dense(denseMatrix* A, double* ret) {}
 
 
 // TODO: FINISH FUNCTION FOR FINDING THE ROW ECHELON FORM OF A MATRIX
@@ -2148,6 +2159,9 @@ int linsolve_dense(denseMatrix* A, denseMatrix* x, denseMatrix* b) {
 //int invsolve_dense(denseMatrix* A, denseMatrix* x, denseMatrix* b) {}
 
 
+// TODO: FINISH MATRIX EXPONENTIATION
+
+
 // TODO: FINISH EIGENDECOMPOSITION
 
 // Function for computing the eigendecomposition (that is A = SES^-1 
@@ -2156,6 +2170,15 @@ int linsolve_dense(denseMatrix* A, denseMatrix* x, denseMatrix* b) {
 // Computed using the QR-algorithm
 // Returns 0 if operation is successful 1 otherwise
 //int eig_dense(denseMatrix* A, denseMatrix* S, denseMatrix* E, denseMatrix* S_inv) {}
+
+
+// TODO: FINISH SCHUR FACTORIZATION
+
+// Function for computing the Schur factorization of A i.e. A = QUQ^T
+// where Q is unitary and U is upper triangular. This is useful as 
+// A and U must be similar meaning that the eigenvalues of A must appear
+// on the diagonal of U. Also unlike with eigendecomposition Schur factorization
+// can be found for every square matrix A.
 
 
 
