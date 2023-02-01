@@ -247,6 +247,34 @@ denseMatrix* conv_to_denseMatrix(double* arr, const int n, const int m) {
 }
 
 
+// Function for converting a denseMatrix to a double array
+double* conv_to_arr(denseMatrix* A) {
+	// Check that the matrix is properly allocated
+	if (A->proper_init) {
+		printf("\nERROR: Given matrix is not properly allocated");
+		printf("FOUND: In file %s at function %s on line %d\n", __FILE__, __func__, __LINE__);
+		return 1;
+	}
+	
+	// Allocate enough memory
+	double* ret = (double*)malloc(A->n * A->m * sizeof(double));
+	
+	int vect_num = A->vects_per_row;
+	// Go over the rows
+	#pragma omp parallel for schedule(dynamic, 1)
+	for (int i = 0; i < A->n; i++) {
+		// Go over the columns
+		for (int j = 0; j < A->m, j++) {
+			double val;
+			_apply_dense(A, &val, i, j);
+			ret[i * A->n + j] = val;
+		}
+	}
+	
+	return ret;
+}
+
+
 // Function for freeing the memory allocated for a denseMatrix
 void free_denseMatrix(denseMatrix* A) {
 	// Free the data array
